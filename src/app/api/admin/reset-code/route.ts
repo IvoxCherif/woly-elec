@@ -18,8 +18,13 @@ export async function POST(req: Request) {
     if (!admin || !process.env.ADMIN_PASSWORD_HASH) return json({ error: "non_configure" }, 503);
     const body = await readJson<{ email?: string }>(req);
     const email = normalizeEmail(body?.email ?? "");
-    if (email !== admin) return json({ sent: true });
+    if (email !== admin) {
+      // Journal serveur seulement (les adresses n'y figurent pas) : utile si l'admin ne reçoit rien
+      console.info("[admin] mot de passe oublié : l'adresse saisie ne correspond pas à ADMIN_EMAIL, aucun e-mail envoyé");
+      return json({ sent: true });
+    }
     const r = await sendEmailCode(db, "admin", admin);
+    console.info(`[admin] mot de passe oublié : code ${r.ok ? "envoyé à ADMIN_EMAIL" : `non envoyé (${r.error})`}`);
     if (!r.ok) return json({ error: r.error }, r.error === "trop_de_codes" ? 429 : 503);
     return json({ sent: true, demoCode: r.demoCode });
   });
