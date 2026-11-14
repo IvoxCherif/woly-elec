@@ -1,0 +1,27 @@
+{
+  "name": "woly-elec",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Woly Elec — Votre électricité, sous contrôle. SaaS d'aide à la gestion de l'électricité prépayée (Woyofal) au Sénégal.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "next": "15.3.3",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.30",
+    "@types/react": "19.1.6",
+    "@types/react-dom": "19.1.6",
+    "typescript": "5.8.3",
+    "vitest": "3.2.3"
+  }
+}
