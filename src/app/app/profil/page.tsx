@@ -10,7 +10,7 @@ import type { Objective, Scenario, Usage } from "@/lib/demo";
 import type { MeterPhase } from "@/lib/engine";
 
 export default function Profil() {
-  const { state, updateUser, updateMeter, removeMeter, loadScenario, notify } = useStore();
+  const { state, mode, updateUser, updateMeter, removeMeter, loadScenario, notify, logout } = useStore();
   const s = useMeterStats();
   const u = state.user;
   const [name, setName] = useState(u.name);
@@ -64,18 +64,22 @@ export default function Profil() {
           <p className="sm">Vos relevés ne servent qu&apos;à calculer vos prévisions et à vous envoyer vos alertes. <Link href="/confidentialite">Politique de confidentialité</Link></p>
           <div className="row wrapf" style={{ gap: 10 }}>
             <button type="button" className="btn btn-line btn-sm" onClick={() => { const url = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: "application/json" })); const a = document.createElement("a"); a.href = url; a.download = "woly-elec-mes-donnees.json"; a.click(); URL.revokeObjectURL(url); }}><Icon name="download" size="s" /> Télécharger mes données</button>
-            <Link className="btn btn-line btn-sm" href="/"><Icon name="logout" size="s" /> Se déconnecter</Link>
+            {mode === "server" ? (
+              <button type="button" className="btn btn-line btn-sm" onClick={logout}><Icon name="logout" size="s" /> Se déconnecter</button>
+            ) : (
+              <Link className="btn btn-line btn-sm" href="/connexion"><Icon name="user" size="s" /> Me connecter</Link>
+            )}
           </div>
         </div>
-        <div className="card col" style={{ gap: 12, background: "var(--yel1)", borderColor: "#F3DC8A" }}>
+        {mode === "demo" && <div className="card col" style={{ gap: 12, background: "var(--yel1)", borderColor: "#F3DC8A" }}>
           <b className="h4">Données de démonstration</b>
-          <p className="sm" style={{ color: "#6B4E00" }}>Cette version fonctionne sans serveur : vos saisies restent dans ce navigateur. Changez de scénario pour explorer l&apos;interface.</p>
+          <p className="sm" style={{ color: "#6B4E00" }}>Vous n&apos;êtes pas connecté : vos saisies restent dans ce navigateur. Changez de scénario pour explorer l&apos;interface.</p>
           <div className="chips">
             {([["essai", "Essai · 1 compteur"], ["proprietaire", "Propriétaire · 6 compteurs"], ["fin-essai", "Essai terminé"]] as [Scenario, string][]).map(([k, l]) => (
               <button key={k} type="button" className="chip" aria-pressed={state.scenario === k} onClick={() => { loadScenario(k); notify(`Scénario chargé : ${l}`); }}>{l}</button>
             ))}
           </div>
-        </div>
+        </div>}
       </div>
     </div>
   );

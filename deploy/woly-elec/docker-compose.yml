@@ -1,31 +1,123 @@
-# SaaS Woly Elec (projet Docker « woly-elec »).
-# Image construite par GitHub Actions et publiée sur GHCR à chaque push sur main.
-# Le conteneur n'expose aucun port : Traefik (projet « proxy ») lui envoie le trafic de wolyelec.com.
+# SaaS Woly Elec (projet Docker « woly-elec ») : application + base PostgreSQL + sauvegardes.
+#
+# - app     : image construite par GitHub Actions (GHCR), routée par Traefik sur wolyelec.com
+# - db      : PostgreSQL 17, sur un réseau privé (aucun port exposé, inaccessible aux autres SaaS)
+# - secrets : génère au premier démarrage le mot de passe de la base et le secret des sessions
+#             (fichiers dans le volume « secrets », jamais dans GitHub ni dans les variables)
+# - backup  : sauvegarde quotidienne de la base, conservée 14 jours (volume « backups »)
 
 services:
+  secrets:
+    image: alpine:3.22
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        umask 022
+        for f in db_password session_secret; do
+          [ -s /run/woly/$$f ] || head -c 48 /dev/urandom | base64 | tr -d '/+=\n' | head -c 48 > /run/woly/$$f
+        done
+        chmod 444 /run/woly/*
+    volumes:
+      - secrets:/run/woly
+
+  db:
+    image: postgres:17-alpine
+    container_name: woly-elec-db
+    restart: unless-stopped
+    depends_on:
+      secrets:
+        condition: service_completed_successfully
+    environment:
+      - POSTGRES_USER=woly
+      - POSTGRES_DB=woly
+      - POSTGRES_PASSWORD_FILE=/run/woly/db_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - secrets:/run/woly:ro
+    networks:
+      - interne
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U woly -d woly"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 512m
+
   app:
     image: ghcr.io/ivoxcherif/woly-elec:latest
     container_name: woly-elec
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       - NODE_ENV=production
-      # Facultatif : active l'assistant IA (Claude). Renseigné dans les variables du projet Hostinger.
+      - DB_HOST=db
+      - DB_USER=woly
+      - DB_NAME=woly
+      - SECRETS_DIR=/run/woly
+      # Phase pilote : sans fournisseur SMS, le code de connexion s'affiche à l'écran ; paiements simulés.
+      - OTP_DEMO=${OTP_DEMO:-true}
+      - PAYMENT_MODE=${PAYMENT_MODE:-demo}
+      # Facultatif : active l'assistant IA (Claude).
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       # Accès /admin (générés par « npm run admin:credentials »). Sans eux, l'admin reste fermé.
       - ADMIN_EMAIL=${ADMIN_EMAIL:-}
       - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:-}
       - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET:-}
+    volumes:
+      - secrets:/run/woly:ro
     labels:
       - traefik.enable=true
+      - traefik.docker.network=web
       - traefik.http.routers.woly-elec.rule=Host(`wolyelec.com`) || Host(`www.wolyelec.com`)
       - traefik.http.routers.woly-elec.entrypoints=websecure
       - traefik.http.routers.woly-elec.tls.certresolver=le
       - traefik.http.services.woly-elec.loadbalancer.server.port=3000
     networks:
       - web
+      - interne
     mem_limit: 768m
     cpus: 1.0
+
+  backup:
+    image: postgres:17-alpine
+    container_name: woly-elec-backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - |
+        while true; do
+          f=/backups/woly-$$(date +%Y-%m-%d).sql.gz
+          if PGPASSWORD=$$(cat /run/woly/db_password) pg_dump -h db -U woly -d woly | gzip > $$f.tmp; then
+            mv $$f.tmp $$f && echo "Sauvegarde OK : $$f"
+          else
+            rm -f $$f.tmp && echo "Sauvegarde ÉCHOUÉE" >&2
+          fi
+          find /backups -name 'woly-*.sql.gz' -mtime +14 -delete
+          sleep 86400
+        done
+    volumes:
+      - backups:/backups
+      - secrets:/run/woly:ro
+    networks:
+      - interne
+    mem_limit: 256m
+
+volumes:
+  pgdata:
+  secrets:
+  backups:
 
 networks:
   web:
     external: true
+  interne:
+    internal: true

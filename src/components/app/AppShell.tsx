@@ -45,7 +45,7 @@ export const useAppUI = () => useContext(UICtx);
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const router = useRouter();
-  const { state, ready, today, meter, selectMeter, toasts } = useStore();
+  const { state, ready, today, meter, selectMeter, toasts, mode } = useStore();
   const [releve, setReleve] = useState(false);
   const [recharge, setRecharge] = useState(false);
   const openReleve = useCallback(() => setReleve(true), []);
@@ -156,7 +156,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {state.user.initials}
             </Link>
           </div>
-          <div className="pad">{ready ? children : <Loading />}</div>
+          <div className="pad">
+            {ready && mode === "demo" && (
+              <div className="alert al-info no-print" role="note">
+                <span className="ai"><Icon name="info" size="s" /></span>
+                <div style={{ flex: 1 }}>
+                  <b>Mode démonstration</b>
+                  Ces données sont fictives et restent dans ce navigateur.{" "}
+                  <Link href="/inscription" style={{ fontWeight: 700 }}>Créer mon compte</Link> ou <Link href="/connexion" style={{ fontWeight: 700 }}>me connecter</Link> pour suivre mon vrai compteur.
+                </div>
+              </div>
+            )}
+            {ready ? children : <Loading />}
+          </div>
         </main>
       </div>
       {ready && meter && (

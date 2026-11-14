@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { Callout, Gauge, NumField, Seg, Switch, TextField } from "@/components/ui";
 import { Otp } from "@/components/site/Otp";
@@ -30,6 +31,20 @@ export default function Inscription() {
   const [objective, setObjective] = useState<Objective>("mois");
   const [whatsapp, setWhatsapp] = useState(true);
   const [consent, setConsent] = useState(false);
+  const router = useRouter();
+  // Compte réel si le serveur a une base de données ; sinon parcours de démonstration
+  const [live, setLive] = useState<boolean | null>(null);
+  const [demoCode, setDemoCode] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Arrivée depuis la connexion avec un numéro déjà vérifié : on reprend à l'étape « Compteur »
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("verifie") === "1") {
+      setLive(true);
+      setStep(2);
+    }
+  }, []);
 
   const bal = parseNum(c801), veille = parseNum(c813), mois = parseNum(c814), amt = parseNum(lastAmount), lk = parseNum(lastKwh);
   const today = useMemo(() => new Date(), []);
@@ -49,11 +64,68 @@ export default function Inscription() {
     true,
   ][step];
 
+  const ERR: Record<string, string> = {
+    telephone_invalide: "Numéro invalide : 9 chiffres, par exemple 77 123 45 67.",
+    trop_de_codes: "Trop de codes demandés pour ce numéro. Réessayez dans une heure.",
+    sms_indisponible: "L'envoi de SMS est momentanément indisponible.",
+    code_invalide: "Code incorrect ou expiré.",
+    telephone_non_verifie: "Votre vérification a expiré : recommencez depuis le début.",
+    deja_inscrit: "Ce numéro a déjà un compte : connectez-vous.",
+    compteur_invalide: "Numéro de compteur invalide.",
+    consentement_requis: "Votre accord est nécessaire pour calculer vos prévisions.",
+  };
+
+  async function post(url: string, body: unknown) {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    return { status: r.status, ok: r.ok, data: await r.json().catch(() => ({})) };
+  }
+
+  async function next() {
+    setError(null);
+    if (step === 0) {
+      setCode("");
+      setBusy(true);
+      const r = await post("/api/auth/otp", { phone }).catch(() => null);
+      setBusy(false);
+      if (!r || (r.status === 503 && r.data.error === "demo")) {
+        setLive(false); // pas de base : parcours de démonstration
+        return setStep(1);
+      }
+      if (!r.ok) return setError(ERR[r.data.error] ?? "Envoi du code impossible.");
+      setLive(true);
+      setDemoCode(r.data.demoCode ?? null);
+      return setStep(1);
+    }
+    if (step === 1 && live) {
+      setBusy(true);
+      const r = await post("/api/auth/verify", { phone, code }).catch(() => null);
+      setBusy(false);
+      if (!r?.ok) return setError(ERR[r?.data.error] ?? "Vérification impossible.");
+      if (r.data.status === "connecte") return router.push("/app"); // compte déjà existant
+      return setStep(2);
+    }
+    if (step === 5 && live) {
+      setBusy(true);
+      const r = await post("/api/auth/signup", {
+        name: "",
+        meter: { number: meter, name: meterName, usage, phase },
+        reading: { balanceKwh: bal, monthKwh: mois, yesterdayKwh: veille },
+        lastRecharge: lastDate && amt > 0 ? { date: lastDate, amount: amt, kwh: lk > 0 ? lk : undefined } : undefined,
+        prefs: { rechargeDay, objective, whatsapp, consent },
+      }).catch(() => null);
+      setBusy(false);
+      if (!r?.ok) return setError(ERR[r?.data.error] ?? "Création du compte impossible.");
+      return setStep(6);
+    }
+    setStep((x) => x + 1);
+  }
+
   return (
     <div className="center col" style={{ gap: 18, maxWidth: 620 }}>
       <div className="pill-step" aria-label={`Étape ${step + 1} sur ${STEPS.length} : ${STEPS[step]}`}>{STEPS.map((s, i) => <i key={s} className={i <= step ? "on" : ""} />)}</div>
       <div className="card col" style={{ gap: 18, padding: 28 }}>
         <span className="eyebrow">Étape {step + 1} sur {STEPS.length} · {STEPS[step]}</span>
+        {error && <Callout tone="red" title="Oups">{error}{error.includes("connectez-vous") && <> <Link href="/connexion">Se connecter</Link></>}</Callout>}
 
         {step === 0 && (
           <>
@@ -65,7 +137,8 @@ export default function Inscription() {
         {step === 1 && (
           <>
             <h1 className="h2" style={{ fontSize: 30 }}>Entrez le code reçu</h1>
-            <p className="sm">Code envoyé par SMS au +221 {phone}. (Démo : tapez 6 chiffres.)</p>
+            <p className="sm">Code envoyé par SMS au +221 {phone}.{live === false ? " (Démo : tapez 6 chiffres.)" : ""}</p>
+            {demoCode && <Callout tone="info" title={`Code : ${demoCode}`}>L&apos;envoi de SMS n&apos;est pas encore branché : en phase pilote, le code s&apos;affiche ici.</Callout>}
             <Otp value={code} onChange={setCode} />
           </>
         )}
@@ -119,13 +192,14 @@ export default function Inscription() {
             </div>
             <Callout tone="info" title="Une estimation de départ">Fiabilité faible avec un seul relevé : faites un relevé par jour pendant deux semaines pour atteindre 85 à 95 %.</Callout>
             <Link className="btn btn-blue btn-blk btn-lg" href="/app">Ouvrir mon tableau de bord</Link>
+            {live === false && <p className="xs mut" style={{ textAlign: "center" }}>Démonstration : aucun compte n&apos;a été créé.</p>}
           </>
         )}
 
         {step < 6 && (
           <div className="row" style={{ gap: 10 }}>
-            {step > 0 && <button type="button" className="btn btn-line" onClick={() => setStep((s) => s - 1)}>Retour</button>}
-            <button type="button" className="btn btn-blue" style={{ flex: 1 }} disabled={!canNext} onClick={() => setStep((s) => s + 1)}>
+            {step > 0 && step !== 2 && <button type="button" className="btn btn-line" onClick={() => { setError(null); setStep((s) => s - 1); }}>Retour</button>}
+            <button type="button" className="btn btn-blue" style={{ flex: 1 }} disabled={!canNext || busy} onClick={next}>
               {step === 0 ? "Recevoir mon code" : step === 4 ? (lastAmount ? "Continuer" : "Passer cette étape") : step === 5 ? "Voir mon estimation" : "Continuer"}
             </button>
           </div>

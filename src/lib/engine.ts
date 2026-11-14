@@ -28,6 +28,20 @@ export const DEFAULT_TARIFF: TariffConfig = {
   margins: { regular: 0.1, average: 0.15, newClient: 0.2 },
 };
 
+// ——— Tarif actif (lu depuis la table de tarifs administrable) ———
+
+let ACTIVE: TariffConfig = DEFAULT_TARIFF;
+/** Tarif utilisé par défaut par toutes les fonctions du moteur. */
+export const activeTariff = (): TariffConfig => ACTIVE;
+export function setActiveTariff(cfg: TariffConfig) {
+  ACTIVE = cfg;
+}
+
+/** Forme JSON (base de données, API) : une limite `null` signifie « sans limite ». */
+export type TariffJson = Omit<TariffConfig, "tiers"> & { tiers: { limit: number | null; price: number }[] };
+export const tariffToJson = (c: TariffConfig): TariffJson => ({ ...c, tiers: c.tiers.map((t) => ({ limit: Number.isFinite(t.limit) ? t.limit : null, price: t.price })) });
+export const tariffFromJson = (j: TariffJson): TariffConfig => ({ ...j, tiers: j.tiers.map((t) => ({ limit: t.limit ?? Infinity, price: t.price })) });
+
 export type MeterPhase = "mono" | "tri";
 
 export type RechargeContext = {
@@ -56,19 +70,19 @@ export type KwhResult = {
 const round = (n: number, d = 1) => Math.round(n * 10 ** d) / 10 ** d;
 
 /** Numéro de tranche (1, 2, 3) pour un cumul de kWh achetés. */
-export function tierIndexFor(boughtMonthKwh: number, cfg: TariffConfig = DEFAULT_TARIFF): number {
+export function tierIndexFor(boughtMonthKwh: number, cfg: TariffConfig = activeTariff()): number {
   const i = cfg.tiers.findIndex((t) => boughtMonthKwh < t.limit);
   return (i === -1 ? cfg.tiers.length - 1 : i) + 1;
 }
 
 /** kWh restants dans la tranche courante avant de passer à la suivante. */
-export function kwhLeftInTier(boughtMonthKwh: number, cfg: TariffConfig = DEFAULT_TARIFF): number {
+export function kwhLeftInTier(boughtMonthKwh: number, cfg: TariffConfig = activeTariff()): number {
   const t = cfg.tiers[tierIndexFor(boughtMonthKwh, cfg) - 1];
   return Number.isFinite(t.limit) ? Math.max(0, t.limit - boughtMonthKwh) : Infinity;
 }
 
 /** kWh obtenus pour un montant donné : le montant net remplit la tranche 1, puis la 2, puis la 3. */
-export function kwhForAmount(amount: number, ctx: RechargeContext, cfg: TariffConfig = DEFAULT_TARIFF): KwhResult {
+export function kwhForAmount(amount: number, ctx: RechargeContext, cfg: TariffConfig = activeTariff()): KwhResult {
   const tax = amount * cfg.communalTax;
   const redevance = ctx.firstRechargeOfMonth ? cfg.redevance[ctx.phase ?? "mono"] : 0;
   const debt = ctx.debt ?? 0;
@@ -99,7 +113,7 @@ export function kwhForAmount(amount: number, ctx: RechargeContext, cfg: TariffCo
 }
 
 /** Montant (FCFA) à payer pour obtenir un besoin en kWh, frais inclus. */
-export function amountForKwh(needKwh: number, ctx: RechargeContext, cfg: TariffConfig = DEFAULT_TARIFF): number {
+export function amountForKwh(needKwh: number, ctx: RechargeContext, cfg: TariffConfig = activeTariff()): number {
   if (needKwh <= 0) return 0;
   let need = needKwh;
   let bought = ctx.boughtMonthKwh;
@@ -180,7 +194,7 @@ export function alertThreshold(days: number): 5 | 3 | 1 | 0 | null {
 }
 
 /** Marge de sécurité : 20–25 % nouveau client, 15 % client moyen, 10 % client régulier. */
-export function safetyMargin(readingsCount: number, cfg: TariffConfig = DEFAULT_TARIFF): number {
+export function safetyMargin(readingsCount: number, cfg: TariffConfig = activeTariff()): number {
   if (readingsCount < 7) return cfg.margins.newClient;
   if (readingsCount < 14) return cfg.margins.average;
   return cfg.margins.regular;
@@ -224,7 +238,7 @@ export type MonthPlan = {
  * Besoin jusqu'à la fin du mois : (jours restants × conso moyenne) − solde.
  * Montant minimum = besoin exact ; montant recommandé = besoin + marge de sécurité.
  */
-export function monthPlan(i: MonthPlanInput, cfg: TariffConfig = DEFAULT_TARIFF): MonthPlan {
+export function monthPlan(i: MonthPlanInput, cfg: TariffConfig = activeTariff()): MonthPlan {
   const daysLeft = daysLeftInMonth(i.date);
   const autonomy = autonomyDays(i.balanceKwh, i.avgDaily);
   const needKwh = Math.max(0, daysLeft * i.avgDaily - i.balanceKwh);
@@ -261,7 +275,7 @@ export type BestDay = {
  * Meilleur jour de recharge : celui qui donne le plus de kWh sans risque de coupure.
  * Le 1er du mois, le cumul de tranche repart à zéro ; la redevance ne change pas le meilleur jour.
  */
-export function bestRechargeDay(i: MonthPlanInput, cfg: TariffConfig = DEFAULT_TARIFF): BestDay {
+export function bestRechargeDay(i: MonthPlanInput, cfg: TariffConfig = activeTariff()): BestDay {
   const plan = monthPlan(i, cfg);
   const first = firstOfNextMonth(i.date);
   const tier = tierIndexFor(i.boughtMonthKwh, cfg);
@@ -310,7 +324,7 @@ export type Simulation = KwhResult & {
 export function simulate(
   amount: number,
   ctx: RechargeContext & { balanceKwh: number; avgDaily: number },
-  cfg: TariffConfig = DEFAULT_TARIFF,
+  cfg: TariffConfig = activeTariff(),
 ): Simulation {
   const r = kwhForAmount(amount, ctx, cfg);
   const tiers = r.parts.filter((p) => p.kwh > 0).map((p) => p.tier);

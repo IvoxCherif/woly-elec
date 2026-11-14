@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Callout } from "@/components/ui";
-import { DEFAULT_TARIFF, kwhForAmount, type TariffConfig } from "@/lib/engine";
+import { DEFAULT_TARIFF, kwhForAmount, tariffFromJson, tariffToJson, type TariffConfig, type TariffJson } from "@/lib/engine";
+import { adminPost, SourceBadge, useAdmin } from "../useAdmin";
+
+type TarifRow = { id: number; version: string; config: TariffJson; active: boolean; createdAt: string };
+const fr = (n: number, d = 2) => num(n, d).replace(/ /g, " ");
 import { annualPrice, monthlyPrice, PACKS } from "@/lib/pricing";
 import { fcfa, kwh, num, parseNum } from "@/lib/format";
 
@@ -13,7 +17,33 @@ export default function AdminTarifs() {
   const [tax, setTax] = useState("2,5");
   const [mono, setMono] = useState("429");
   const [tri, setTri] = useState("1427");
-  const [published, setPublished] = useState<string | null>(null);
+  const [version, setVersion] = useState("");
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const { data, live, reload } = useAdmin<TarifRow[]>("tariffs");
+  const active = data?.find((r) => r.active);
+
+  // Pré-remplit le formulaire avec la version active en base
+  useEffect(() => {
+    if (!active) return;
+    const c = tariffFromJson(active.config);
+    setT1(fr(c.tiers[0]?.price ?? 0));
+    setT2(fr(c.tiers[1]?.price ?? 0));
+    setT3(fr(c.tiers[2]?.price ?? 0));
+    setTax(fr(c.communalTax * 100, 2));
+    setMono(String(c.redevance.mono));
+    setTri(String(c.redevance.tri));
+  }, [active]);
+
+  async function publish() {
+    setMsg(null);
+    if (!live) return setMsg({ ok: false, text: "Base de données non configurée : la publication est impossible sur ce serveur." });
+    const r = await adminPost({ type: "tarif", config: tariffToJson(cfg), version: version || `Version du ${new Date().toLocaleDateString("fr-FR")}` });
+    if (r.ok) {
+      setMsg({ ok: true, text: "Nouvelle version publiée : elle s'applique dès maintenant à toutes les prévisions." });
+      setVersion("");
+      void reload();
+    } else setMsg({ ok: false, text: r.error === "tarif_invalide" ? "Valeurs invalides : vérifiez les prix et la taxe." : "Publication impossible." });
+  }
 
   const cfg: TariffConfig = {
     ...DEFAULT_TARIFF,
@@ -28,10 +58,13 @@ export default function AdminTarifs() {
   return (
     <>
       <div className="row wrapf" style={{ gap: 12 }}>
-        <span className="badge b-gr">Version active : {published ?? "décision CRSE 2025-140 (01/01/2026)"}</span>
+        <span className="badge b-gr">Version active : {active?.version ?? "Décision CRSE 2025-140 (01/01/2026)"}</span>
+        <SourceBadge live={live} />
         <span className="sp" />
-        <button type="button" className="btn btn-blue btn-sm" onClick={() => setPublished(new Date().toLocaleDateString("fr-FR"))}>Publier une nouvelle version</button>
+        <label className="inp" style={{ minHeight: 44, width: 260 }}><input value={version} onChange={(e) => setVersion(e.target.value)} placeholder="Nom de la version (facultatif)" aria-label="Nom de la nouvelle version" style={{ fontSize: 14 }} /></label>
+        <button type="button" className="btn btn-blue btn-sm" onClick={publish}>Publier une nouvelle version</button>
       </div>
+      {msg && <Callout tone={msg.ok ? "ok" : "red"} title={msg.ok ? "Publié" : "Erreur"}>{msg.text}</Callout>}
       <Callout tone="info" title="Aucun tarif en dur dans le code">Le moteur de calcul lit cette table. Une modification s&apos;applique aux prévisions dès la publication. Les valeurs « à confirmer » doivent être calibrées sur de vrais tickets de recharge.</Callout>
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         <div className="row" style={{ padding: "18px 20px" }}><b className="h3">Tranches · domestique petite puissance (DPP)</b></div>
@@ -56,6 +89,26 @@ export default function AdminTarifs() {
         <span className="lab">Aperçu avec ces valeurs</span>
         <p className="sm">10 000 F, 1re recharge du mois : <b className="ink">≈ {kwh(ex1)}</b> · 10 000 F avec 150 kWh déjà achetés : <b className="ink">≈ {kwh(ex2)}</b></p>
       </div>
+      {data && data.length > 0 && (
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="row" style={{ padding: "18px 20px" }}><b className="h3">Historique des versions</b></div>
+          <div className="scr">
+            <table className="tbl" style={{ minWidth: 640 }}>
+              <thead><tr><th>Version</th><th>Publiée le</th><th className="n">Tranche 1</th><th className="n">Tranche 2</th><th className="n">Taxe</th><th>Statut</th></tr></thead>
+              <tbody>
+                {data.map((r) => (
+                  <tr key={r.id}>
+                    <td>{r.version}</td><td>{new Date(r.createdAt).toLocaleDateString("fr-FR")}</td>
+                    <td className="n">{fr(r.config.tiers[0]?.price ?? 0)} F</td><td className="n">{fr(r.config.tiers[1]?.price ?? 0)} F</td>
+                    <td className="n">{fr(r.config.communalTax * 100, 1)} %</td>
+                    <td>{r.active ? <span className="badge b-ok">Active</span> : <span className="badge b-gr">Archivée</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         <div className="row" style={{ padding: "18px 20px" }}><b className="h3">Offres et prix</b></div>
         <div className="scr">

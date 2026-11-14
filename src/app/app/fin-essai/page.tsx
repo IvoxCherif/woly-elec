@@ -5,7 +5,7 @@ import { Icon } from "@/components/Icon";
 import { useStore } from "@/lib/store";
 
 export default function FinEssai() {
-  const { loadScenario } = useStore();
+  const { loadScenario, mode } = useStore();
   return (
     <div className="overlay light" style={{ position: "relative", inset: "auto", minHeight: "70vh", background: "transparent" }}>
       <div className="modal col" role="dialog" aria-label="Votre essai est terminé" style={{ maxWidth: 680, gap: 20, padding: 36, alignItems: "center", textAlign: "center" }}>
@@ -25,7 +25,7 @@ export default function FinEssai() {
           <Link className="btn btn-line btn-lg" href="/tarifs">Voir les offres</Link>
         </div>
         <span className="xs mut">Paiement sécurisé par Wave, Orange Money ou Free Money · sur le site uniquement</span>
-        <button type="button" className="xs" style={{ color: "var(--blue)" }} onClick={() => loadScenario("essai")}>Démo : revenir à un essai en cours</button>
+        {mode === "demo" && <button type="button" className="xs" style={{ color: "var(--blue)" }} onClick={() => loadScenario("essai")}>Démo : revenir à un essai en cours</button>}
       </div>
     </div>
   );

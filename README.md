@@ -9,11 +9,22 @@ Sources : cahier des charges v2, présentation Woly Elec, projet Notion « Woly 
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # 19 tests du moteur de calcul et des prix
+npm test           # moteur de calcul, prix, sessions et base de données (PGlite)
 npm run build
 ```
 
 Assistant IA (facultatif) : définir `ANTHROPIC_API_KEY` dans `.env.local`. Sans clé, l'assistant répond avec le moteur de calcul local.
+
+## Base de données
+
+PostgreSQL (Drizzle ORM). Schéma : `src/db/schema.ts` — clients, compteurs, relevés, recharges, appareils, alertes, abonnements, paiements, usage et messages IA, essais, codes SMS, tarifs (versionnés), modèles de messages. Les migrations (`drizzle/`) s'appliquent automatiquement au démarrage.
+
+- **Production** : conteneur `db` du projet Docker `woly-elec` (voir `deploy/woly-elec/docker-compose.yml`), réseau privé, mot de passe généré automatiquement sur le serveur, sauvegarde quotidienne gardée 14 jours.
+- **Local** : `DATABASE_URL=pglite:./.pglite` dans `.env.local` (PostgreSQL embarqué, sans Docker).
+- **Sans base** : l'application fonctionne en mode démonstration (données dans le navigateur).
+- Nouvelle migration après modification du schéma : `npx drizzle-kit generate`.
+
+Phase pilote : sans fournisseur SMS, le code de connexion s'affiche à l'écran (`OTP_DEMO=true`) ; les paiements sont simulés et tracés comme tels (`PAYMENT_MODE=demo`).
 
 ## Accès administrateur
 

@@ -20,7 +20,9 @@ export function Otp({ value, onChange }: { value: string; onChange: (v: string) 
           aria-label={`Chiffre ${i + 1}`}
           value={d}
           onChange={(e) => {
-            const v = e.target.value.replace(/\D/g, "");
+            let v = e.target.value.replace(/\D/g, "");
+            // Case déjà remplie : le nouveau chiffre remplace l'ancien au lieu de s'y ajouter
+            if (d && v.length === 2) v = v[0] === d ? v[1] : v[0];
             if (!v) {
               onChange(value.slice(0, i) + value.slice(i + 1));
               return;

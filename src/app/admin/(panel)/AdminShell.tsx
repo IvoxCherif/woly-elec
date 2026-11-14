@@ -37,7 +37,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <main id="contenu">
         <div className="topbar">
           <h1 className="mont ink" style={{ fontWeight: 800, fontSize: 22 }}>{current?.title ?? "Administration"}</h1>
-          <span className="badge b-warn">Données d&apos;exemple</span>
           <span className="sp" />
           <span className="avatar" style={{ background: "var(--g9)", color: "var(--yel)" }}>CT</span>
         </div>

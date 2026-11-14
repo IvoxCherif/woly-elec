@@ -14,14 +14,19 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
+    "drizzle-orm": "0.45.4",
     "next": "15.3.3",
+    "postgres": "3.4.7",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.12",
     "@types/node": "22.15.30",
     "@types/react": "19.1.6",
     "@types/react-dom": "19.1.6",
+    "drizzle-kit": "0.31.11",
     "typescript": "5.8.3",
     "vitest": "3.2.3"
   }

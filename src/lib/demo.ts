@@ -78,6 +78,10 @@ export type ChatMsg = { role: "u" | "a"; text: string };
 
 export type State = {
   version: number;
+  /** demo : données dans le navigateur ; server : compte réel en base de données */
+  mode?: "demo" | "server";
+  /** tarif actif (table de tarifs administrable) */
+  tariff?: import("./engine").TariffJson;
   scenario: Scenario;
   user: User;
   subscription: Subscription;

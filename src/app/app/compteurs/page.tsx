@@ -13,7 +13,7 @@ import type { MeterPhase } from "@/lib/engine";
 type Filter = "tous" | "warn" | "risk";
 
 export default function Compteurs() {
-  const { state, today, selectMeter, addMeter, notify, loadScenario } = useStore();
+  const { state, mode, today, selectMeter, addMeter, notify, loadScenario } = useStore();
   const [filter, setFilter] = useState<Filter>("tous");
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
@@ -47,9 +47,13 @@ export default function Compteurs() {
       {state.meters.length === 1 && sub.status !== "actif" && (
         <Callout tone="info" title="Propriétaire, famille, commerce ?">
           Suivez plusieurs compteurs dans un seul tableau de bord : chaque compteur supplémentaire coûte {fcfa(PACKS[sub.pack].extra)}/mois.{" "}
-          <button type="button" className="sm" style={{ color: "var(--blue)", fontWeight: 700 }} onClick={() => { loadScenario("proprietaire"); notify("Démo propriétaire chargée : 6 compteurs"); }}>
-            Voir la démo propriétaire
-          </button>
+          {mode === "demo" ? (
+            <button type="button" className="sm" style={{ color: "var(--blue)", fontWeight: 700 }} onClick={() => { loadScenario("proprietaire"); notify("Démo propriétaire chargée : 6 compteurs"); }}>
+              Voir la démo propriétaire
+            </button>
+          ) : (
+            <Link className="sm" href="/app/abonnement/paiement" style={{ fontWeight: 700 }}>M&apos;abonner pour ajouter des compteurs</Link>
+          )}
         </Callout>
       )}
 
