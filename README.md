@@ -15,6 +15,16 @@ npm run build
 
 Assistant IA (facultatif) : définir `ANTHROPIC_API_KEY` dans `.env.local`. Sans clé, l'assistant répond avec le moteur de calcul local.
 
+## Accès administrateur
+
+`/admin` est protégé par `/admin/login` (middleware, session signée de 8 h, 5 essais par quart d'heure). Pour créer les identifiants :
+
+```bash
+npm run admin:credentials
+```
+
+Le script demande l'e-mail et le mot de passe (masqué) et affiche `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` (empreinte scrypt) et `ADMIN_SESSION_SECRET`. Mettez-les dans `.env.local` en local, et dans les variables du projet Docker `woly-elec` sur le VPS. Sans ces variables, l'admin reste fermé.
+
 ## Pages
 
 | Zone | Route | Contenu |

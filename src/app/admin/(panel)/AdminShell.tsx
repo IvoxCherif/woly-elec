@@ -27,6 +27,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         ))}
         <div className="sep" />
         <Link href="/app"><Icon name="arrow" /> Espace client</Link>
+        <span style={{ flex: 1 }} />
+        <form action="/api/admin/logout" method="post">
+          <button type="submit" className="row" style={{ minHeight: 46, padding: "0 14px", gap: 12, color: "#cfe3d8", font: "600 15px Inter", width: "100%" }}>
+            <Icon name="logout" /> Se déconnecter
+          </button>
+        </form>
       </aside>
       <main id="contenu">
         <div className="topbar">

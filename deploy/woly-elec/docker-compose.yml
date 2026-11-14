@@ -11,6 +11,10 @@ services:
       - NODE_ENV=production
       # Facultatif : active l'assistant IA (Claude). Renseigné dans les variables du projet Hostinger.
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # Accès /admin (générés par « npm run admin:credentials »). Sans eux, l'admin reste fermé.
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:-}
+      - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET:-}
     labels:
       - traefik.enable=true
       - traefik.http.routers.woly-elec.rule=Host(`wolyelec.com`) || Host(`www.wolyelec.com`)
