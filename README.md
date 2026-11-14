@@ -24,7 +24,9 @@ PostgreSQL (Drizzle ORM). Schéma : `src/db/schema.ts` — clients, compteurs, r
 - **Sans base** : l'application fonctionne en mode démonstration (données dans le navigateur).
 - Nouvelle migration après modification du schéma : `npx drizzle-kit generate`.
 
-Phase pilote : sans fournisseur SMS, le code de connexion s'affiche à l'écran (`OTP_DEMO=true`) ; les paiements sont simulés et tracés comme tels (`PAYMENT_MODE=demo`).
+Comptes clients : connexion **par e-mail + mot de passe** (empreinte scrypt) ou **avec Google** (OpenID Connect). Pour activer Google : créer un identifiant OAuth « Application Web » dans Google Cloud Console, URI de redirection `https://wolyelec.com/api/auth/google/callback`, puis définir `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET`. Le numéro de téléphone est facultatif (profil) et sert aux alertes WhatsApp / SMS.
+
+Phase pilote : les paiements sont simulés et tracés comme tels (`PAYMENT_MODE=demo`) ; pas encore d'e-mail de réinitialisation du mot de passe (aide via WhatsApp).
 
 ## Accès administrateur
 
@@ -43,8 +45,8 @@ Le script demande l'e-mail et le mot de passe (masqué) et affiche `ADMIN_EMAIL`
 | Site | `/` | Accueil : problème des tranches, fonctionnalités, exemple, canaux, IA, tarifs, FAQ |
 | | `/tarifs` | Offres mensuel/annuel, comparatif, calculateur de compteurs |
 | | `/aide`, `/mentions-legales`, `/confidentialite`, `/conditions` | Aide (codes 801/813/814), pages légales (textes à valider) |
-| Accès | `/inscription` | Onboarding : téléphone, OTP, compteur, codes 801/814/813, dernière recharge, préférences, 1re estimation |
-| | `/connexion` | Connexion par code SMS |
+| Accès | `/inscription` | Créer un compte : Google ou e-mail + mot de passe, compteur, codes 801/814/813, dernière recharge, préférences, 1re estimation |
+| | `/connexion` | Connexion avec Google ou par e-mail + mot de passe |
 | | `/maj/[token]` | Page du lien d'alerte (formulaire, résultat, lien expiré : `/maj/exp`) |
 | Application | `/app` | Tableau de bord : jauge, montant à recharger, tranche, frise du mois, courbe, dépenses |
 | | `/app/simulateur` | Montant → kWh, tranche, autonomie, détail des frais, aujourd'hui vs le 1er |

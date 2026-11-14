@@ -5,18 +5,28 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { Callout, Gauge, NumField, Seg, Switch, TextField } from "@/components/ui";
-import { Otp } from "@/components/site/Otp";
+import { GoogleButton, OrSeparator } from "@/components/site/GoogleButton";
 import { kwhForAmount, monthPlan, type MeterPhase } from "@/lib/engine";
 import { days, fcfa, kwh, parseNum } from "@/lib/format";
 
 type Usage = "Ménage" | "Commerce" | "Location";
 type Objective = "mois" | "coupure" | "economiser";
-const STEPS = ["Téléphone", "Code SMS", "Compteur", "Relevés", "Recharge", "Préférences", "Résultat"];
+const STEPS = ["Compte", "Compteur", "Relevés", "Recharge", "Préférences", "Résultat"];
+
+const GOOGLE_ERR: Record<string, string> = {
+  google_indisponible: "La connexion avec Google n'est pas encore activée. Utilisez votre e-mail.",
+  google_annule: "Connexion avec Google annulée.",
+  google_session: "La connexion avec Google a expiré : recommencez.",
+  google_refuse: "Google n'a pas pu confirmer votre compte.",
+};
 
 export default function Inscription() {
   const [step, setStep] = useState(0);
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
   const [meter, setMeter] = useState("");
   const [meterName, setMeterName] = useState("Maison");
   const [usage, setUsage] = useState<Usage>("Ménage");
@@ -34,15 +44,25 @@ export default function Inscription() {
   const router = useRouter();
   // Compte réel si le serveur a une base de données ; sinon parcours de démonstration
   const [live, setLive] = useState<boolean | null>(null);
-  const [demoCode, setDemoCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Arrivée depuis la connexion avec un numéro déjà vérifié : on reprend à l'étape « Compteur »
+  // Retour de Google (nouveau compte) ou erreur de connexion Google
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("verifie") === "1") {
-      setLive(true);
-      setStep(2);
+    const q = new URLSearchParams(window.location.search);
+    const err = q.get("erreur");
+    if (err) setError(GOOGLE_ERR[err] ?? "La connexion avec Google a échoué.");
+    if (q.get("google") === "1") {
+      fetch("/api/auth/pending")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (!j?.email) return setError("Votre connexion Google a expiré : recommencez.");
+          setGoogleEmail(j.email);
+          setName(j.name ?? "");
+          setLive(true);
+          setStep(1);
+        })
+        .catch(() => undefined);
     }
   }, []);
 
@@ -54,9 +74,9 @@ export default function Inscription() {
   const avg = mois > 0 && today.getDate() > 1 ? mois / (today.getDate() - 1) : veille;
   const plan = bal >= 0 && avg > 0 ? monthPlan({ date: today, balanceKwh: bal, avgDaily: avg, boughtMonthKwh: bought, firstRechargeOfMonth: !thisMonth, phase, readingsCount: 1 }) : null;
 
+  const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const canNext = [
-    phone.replace(/\D/g, "").length === 9,
-    code.length === 6,
+    emailOk && password.length >= 8 && password === password2,
     meter.replace(/\D/g, "").length >= 8,
     bal >= 0 && veille >= 0 && mois >= 0,
     true,
@@ -65,14 +85,13 @@ export default function Inscription() {
   ][step];
 
   const ERR: Record<string, string> = {
-    telephone_invalide: "Numéro invalide : 9 chiffres, par exemple 77 123 45 67.",
-    trop_de_codes: "Trop de codes demandés pour ce numéro. Réessayez dans une heure.",
-    sms_indisponible: "L'envoi de SMS est momentanément indisponible.",
-    code_invalide: "Code incorrect ou expiré.",
-    telephone_non_verifie: "Votre vérification a expiré : recommencez depuis le début.",
-    deja_inscrit: "Ce numéro a déjà un compte : connectez-vous.",
+    email_invalide: "Adresse e-mail invalide.",
+    email_pris: "Cette adresse a déjà un compte : connectez-vous.",
+    mot_de_passe_court: "Le mot de passe doit faire au moins 8 caractères.",
+    deja_inscrit: "Cette adresse a déjà un compte : connectez-vous.",
     compteur_invalide: "Numéro de compteur invalide.",
     consentement_requis: "Votre accord est nécessaire pour calculer vos prévisions.",
+    trop_de_comptes: "Trop de comptes créés depuis cette connexion. Réessayez plus tard.",
   };
 
   async function post(url: string, body: unknown) {
@@ -83,31 +102,23 @@ export default function Inscription() {
   async function next() {
     setError(null);
     if (step === 0) {
-      setCode("");
       setBusy(true);
-      const r = await post("/api/auth/otp", { phone }).catch(() => null);
+      const r = await post("/api/auth/check-email", { email }).catch(() => null);
       setBusy(false);
       if (!r || (r.status === 503 && r.data.error === "demo")) {
         setLive(false); // pas de base : parcours de démonstration
         return setStep(1);
       }
-      if (!r.ok) return setError(ERR[r.data.error] ?? "Envoi du code impossible.");
+      if (!r.ok) return setError(ERR[r.data.error] ?? "Vérification de l'adresse impossible.");
+      if (!r.data.disponible) return setError(ERR.email_pris);
       setLive(true);
-      setDemoCode(r.data.demoCode ?? null);
       return setStep(1);
     }
-    if (step === 1 && live) {
-      setBusy(true);
-      const r = await post("/api/auth/verify", { phone, code }).catch(() => null);
-      setBusy(false);
-      if (!r?.ok) return setError(ERR[r?.data.error] ?? "Vérification impossible.");
-      if (r.data.status === "connecte") return router.push("/app"); // compte déjà existant
-      return setStep(2);
-    }
-    if (step === 5 && live) {
+    if (step === 4 && live) {
       setBusy(true);
       const r = await post("/api/auth/signup", {
-        name: "",
+        name,
+        account: googleEmail ? undefined : { email, password },
         meter: { number: meter, name: meterName, usage, phase },
         reading: { balanceKwh: bal, monthKwh: mois, yesterdayKwh: veille },
         lastRecharge: lastDate && amt > 0 ? { date: lastDate, amount: amt, kwh: lk > 0 ? lk : undefined } : undefined,
@@ -115,7 +126,7 @@ export default function Inscription() {
       }).catch(() => null);
       setBusy(false);
       if (!r?.ok) return setError(ERR[r?.data.error] ?? "Création du compte impossible.");
-      return setStep(6);
+      return setStep(5);
     }
     setStep((x) => x + 1);
   }
@@ -129,21 +140,20 @@ export default function Inscription() {
 
         {step === 0 && (
           <>
-            <h1 className="h2" style={{ fontSize: 30 }}>Commencez vos 30 jours gratuits</h1>
-            <p className="sm">Accès complet pour un compteur. Pas de carte bancaire, pas d&apos;engagement.</p>
-            <TextField label="Numéro de téléphone" value={phone} onChange={setPhone} prefix="+221" placeholder="77 123 45 67" type="tel" autoComplete="tel-national" hint="Vous recevrez un code par SMS pour vous connecter." />
+            <h1 className="h2" style={{ fontSize: 30 }}>Créer mon compte</h1>
+            <p className="sm">30 jours gratuits, accès complet pour un compteur. Pas de carte bancaire, pas d&apos;engagement.</p>
+            <GoogleButton mode="inscription" />
+            <OrSeparator />
+            <TextField label="Votre nom" value={name} onChange={setName} autoComplete="name" placeholder="Awa Diallo" />
+            <TextField label="Adresse e-mail" type="email" value={email} onChange={setEmail} autoComplete="email" placeholder="vous@exemple.com" />
+            <TextField label="Mot de passe" type="password" value={password} onChange={setPassword} autoComplete="new-password" hint="8 caractères minimum." />
+            <TextField label="Confirmez le mot de passe" type="password" value={password2} onChange={setPassword2} autoComplete="new-password" />
+            {password2 && password !== password2 && <span className="hint e">Les deux mots de passe sont différents.</span>}
           </>
         )}
         {step === 1 && (
           <>
-            <h1 className="h2" style={{ fontSize: 30 }}>Entrez le code reçu</h1>
-            <p className="sm">Code envoyé par SMS au +221 {phone}.{live === false ? " (Démo : tapez 6 chiffres.)" : ""}</p>
-            {demoCode && <Callout tone="info" title={`Code : ${demoCode}`}>L&apos;envoi de SMS n&apos;est pas encore branché : en phase pilote, le code s&apos;affiche ici.</Callout>}
-            <Otp value={code} onChange={setCode} />
-          </>
-        )}
-        {step === 2 && (
-          <>
+            {googleEmail && <Callout tone="ok" icon="check" title="Compte Google vérifié">{googleEmail}</Callout>}
             <h1 className="h2" style={{ fontSize: 30 }}>Ajoutez votre compteur</h1>
             <TextField label="Numéro de compteur Woyofal" value={meter} onChange={setMeter} placeholder="0145 6789 012" hint="Inscrit sur la face avant du compteur ou sur votre ticket de recharge." />
             <TextField label="Nom du compteur" value={meterName} onChange={setMeterName} placeholder="Maison de Dakar" />
@@ -151,7 +161,7 @@ export default function Inscription() {
             <div className="field"><span className="lbl">Type de compteur</span><Seg<MeterPhase> label="Type de compteur" value={phase} onChange={setPhase} options={[{ value: "mono", label: "Monophasé (le plus courant)" }, { value: "tri", label: "Triphasé" }]} /></div>
           </>
         )}
-        {step === 3 && (
+        {step === 2 && (
           <>
             <h1 className="h2" style={{ fontSize: 30 }}>Saisissez 3 chiffres</h1>
             <p className="sm">Sur le clavier du compteur, tapez chaque code puis recopiez la valeur affichée.</p>
@@ -161,7 +171,7 @@ export default function Inscription() {
             <div className="row sm mut" style={{ gap: 8 }}><Icon name="camera" size="s" /> Bientôt : prenez une photo du compteur, les chiffres seront lus automatiquement.</div>
           </>
         )}
-        {step === 4 && (
+        {step === 3 && (
           <>
             <h1 className="h2" style={{ fontSize: 30 }}>Votre dernière recharge</h1>
             <p className="sm">Elle permet de savoir combien de kWh vous avez déjà achetés ce mois-ci, donc votre tranche. Facultatif.</p>
@@ -170,7 +180,7 @@ export default function Inscription() {
             <NumField label="kWh reçus (sur le ticket)" unit="kWh" value={lastKwh} onChange={setLastKwh} big={false} hint={amt > 0 && !lk ? `Estimé : ≈ ${kwh(kwhForAmount(amt, { boughtMonthKwh: 0, firstRechargeOfMonth: true, phase }).kwh)}` : undefined} />
           </>
         )}
-        {step === 5 && (
+        {step === 4 && (
           <>
             <h1 className="h2" style={{ fontSize: 30 }}>Vos préférences</h1>
             <div className="field"><span className="lbl">Jour de recharge préféré</span><div className="chips">{[1, 5, 10, 15, 20, 25].map((d) => <button key={d} type="button" className="chip" aria-pressed={rechargeDay === d} onClick={() => setRechargeDay(d)}>{d === 1 ? "1er" : d}</button>)}</div></div>
@@ -180,7 +190,7 @@ export default function Inscription() {
             <p className="xs mut">En continuant, vous acceptez les <Link href="/conditions">conditions d&apos;utilisation</Link> et la <Link href="/confidentialite">politique de confidentialité</Link>. Woly Elec n&apos;est pas affilié à la Senelec.</p>
           </>
         )}
-        {step === 6 && plan && (
+        {step === 5 && plan && (
           <>
             <h1 className="h2" style={{ fontSize: 30 }}>Votre première estimation</h1>
             <div className="row wrapf" style={{ gap: 24, justifyContent: "center" }}>
@@ -196,11 +206,11 @@ export default function Inscription() {
           </>
         )}
 
-        {step < 6 && (
+        {step < 5 && (
           <div className="row" style={{ gap: 10 }}>
-            {step > 0 && step !== 2 && <button type="button" className="btn btn-line" onClick={() => { setError(null); setStep((s) => s - 1); }}>Retour</button>}
+            {step > 0 && !(step === 1 && googleEmail) && <button type="button" className="btn btn-line" onClick={() => { setError(null); setStep((s) => s - 1); }}>Retour</button>}
             <button type="button" className="btn btn-blue" style={{ flex: 1 }} disabled={!canNext || busy} onClick={next}>
-              {step === 0 ? "Recevoir mon code" : step === 4 ? (lastAmount ? "Continuer" : "Passer cette étape") : step === 5 ? "Voir mon estimation" : "Continuer"}
+              {step === 0 ? "Continuer avec mon e-mail" : step === 3 ? (lastAmount ? "Continuer" : "Passer cette étape") : step === 4 ? "Voir mon estimation" : "Continuer"}
             </button>
           </div>
         )}

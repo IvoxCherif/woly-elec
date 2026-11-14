@@ -13,7 +13,7 @@ export type Action =
   | { type: "meter.update"; id: string; patch: Partial<Pick<Meter, "name" | "usage" | "phase" | "debt" | "occupant">> }
   | { type: "appliance.add"; appliance: Omit<Appliance, "id"> }
   | { type: "appliance.remove"; id: string }
-  | { type: "user.update"; patch: Partial<Omit<User, "phone" | "initials">> }
+  | { type: "user.update"; patch: Partial<Omit<User, "initials" | "email">> }
   | { type: "alerts.read" }
   | { type: "alert.dismiss"; id: string }
   | { type: "subscribe"; pack: Pack; cycle: Cycle; meters: number; method: PaymentMethod }

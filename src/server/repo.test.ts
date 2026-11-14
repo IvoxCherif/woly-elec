@@ -22,8 +22,9 @@ beforeAll(async () => {
   await seed(db); // idempotent
 });
 
-const signupInput = (phone: string, meter: string) => ({
-  phone,
+const HASH = "scrypt:00:00"; // empreinte factice : le mot de passe n'est pas testé ici
+const signupInput = (email: string, meter: string) => ({
+  identity: { kind: "email" as const, email, passwordHash: HASH },
   name: "M. Diallo",
   meter: { number: meter, name: "Maison de Dakar", usage: "Ménage", phase: "mono" },
   reading: { balanceKwh: 41.6, monthKwh: 85, yesterdayKwh: 5.1 },
@@ -36,10 +37,11 @@ describe("base de données Woly Elec", () => {
   let meterId: string;
 
   it("crée un compte complet à l'inscription, avec essai de 30 jours", async () => {
-    clientId = await signup(db, signupInput("+221771234567", "0145 6789 012"), today);
+    clientId = await signup(db, signupInput("Diallo@Exemple.sn", "0145 6789 012"), today);
     const s = (await buildState(db, clientId, today))!;
     expect(s.mode).toBe("server");
-    expect(s.user.phone).toBe("+221 77 123 45 67");
+    expect(s.user.email).toBe("diallo@exemple.sn"); // e-mail normalisé en minuscules
+    expect(s.user.phone).toBe("");
     expect(s.subscription.status).toBe("essai");
     expect(s.subscription.trialEnd).toBe("2026-12-17");
     expect(s.meters).toHaveLength(1);
@@ -51,8 +53,8 @@ describe("base de données Woly Elec", () => {
   });
 
   it("refuse un deuxième compte ou un deuxième essai", async () => {
-    await expect(signup(db, signupInput("+221771234567", "0999 0000 001"), today)).rejects.toThrow("deja_inscrit");
-    const other = await signup(db, signupInput("+221781112233", "0145 6789 012"), today); // même compteur
+    await expect(signup(db, signupInput("diallo@exemple.sn", "0999 0000 001"), today)).rejects.toThrow("deja_inscrit");
+    const other = await signup(db, signupInput("autre@exemple.sn", "0145 6789 012"), today); // même compteur
     expect((await buildState(db, other, today))!.subscription.status).toBe("expire");
   });
 
@@ -79,7 +81,7 @@ describe("base de données Woly Elec", () => {
   });
 
   it("protège les données d'un autre client", async () => {
-    const other = await signup(db, signupInput("+221761234500", "0333 4444 555"), today);
+    const other = await signup(db, signupInput("troisieme@exemple.sn", "0333 4444 555"), today);
     await expect(applyAction(db, other, { type: "reading", meterId, date: isoDate(today), balanceKwh: 1, monthKwh: 1, yesterdayKwh: 1 }, today)).rejects.toBeInstanceOf(ActionError);
   });
 
@@ -109,13 +111,31 @@ describe("base de données Woly Elec", () => {
     expect(s.tariff?.tiers[2].limit).toBeNull();
   });
 
+  it("enregistre le numéro WhatsApp des alertes et refuse un numéro invalide", async () => {
+    await applyAction(db, clientId, { type: "user.update", patch: { phone: "77 123 45 67" } }, today);
+    expect((await buildState(db, clientId, today))!.user.phone).toBe("+221 77 123 45 67");
+    await expect(applyAction(db, clientId, { type: "user.update", patch: { phone: "12" } }, today)).rejects.toThrow("telephone_invalide");
+  });
+
+  it("crée un compte Google et refuse le même compte Google deux fois", async () => {
+    const g = { kind: "google" as const, sub: "g-123", email: "awa@gmail.com", name: "Awa Ndiaye" };
+    const id = await signup(db, { ...signupInput("x@x.sn", "0777 8888 999"), name: "", identity: g }, today);
+    const s = (await buildState(db, id, today))!;
+    expect(s.user.name).toBe("Awa Ndiaye");
+    expect(s.user.email).toBe("awa@gmail.com");
+    await expect(signup(db, { ...signupInput("y@y.sn", "0777 8888 000"), identity: { ...g, email: "autre@gmail.com" } }, today)).rejects.toThrow("deja_inscrit");
+  });
+
   it("calcule les indicateurs de l'administration", async () => {
     const o = await adminOverview(db, 30);
-    expect(o.totalClients).toBe(3);
-    expect(o.actifsSemaine).toBe(3); // les 3 comptes ont fait un relevé à l'inscription
+    expect(o.totalClients).toBe(4);
+    expect(o.actifsSemaine).toBe(4); // les 3 comptes ont fait un relevé à l'inscription
     const users = await adminUsers(db);
-    expect(users).toHaveLength(3);
-    expect(users.find((u) => u.status === "Actif")?.phone).toBe("+221 77 ••• •• 67");
+    expect(users).toHaveLength(4);
+    const actif = users.find((u) => u.status === "Actif")!;
+    expect(actif.email).toBe("diallo@exemple.sn");
+    expect(actif.method).toBe("E-mail");
+    expect(actif.phone).toBe("+221 77 ••• •• 67");
     expect((await adminAlerts(db)).length).toBeGreaterThan(0);
   });
 });

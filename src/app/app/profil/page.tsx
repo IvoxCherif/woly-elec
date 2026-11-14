@@ -14,7 +14,7 @@ export default function Profil() {
   const s = useMeterStats();
   const u = state.user;
   const [name, setName] = useState(u.name);
-  const [email, setEmail] = useState(u.email);
+  const [phone, setPhone] = useState(u.phone);
   const [mName, setMName] = useState(s.meter.name);
   const [debt, setDebt] = useState(String(s.meter.debt));
 
@@ -23,19 +23,20 @@ export default function Profil() {
       <div className="col" style={{ gap: 20 }}>
         <div className="card row" style={{ gap: 14 }}>
           <span className="avatar" style={{ width: 56, height: 56, fontSize: 20, background: "var(--g9)", color: "var(--yel)" }}>{u.initials}</span>
-          <div style={{ flex: 1 }}><b className="mont ink" style={{ fontSize: 18 }}>{u.name}</b><div className="sm mut">{u.phone} · connexion par code SMS</div></div>
+          <div style={{ flex: 1 }}><b className="mont ink" style={{ fontSize: 18 }}>{u.name}</b><div className="sm mut">{u.email || "Compte de démonstration"}</div></div>
           <span className={`badge ${state.subscription.status === "essai" ? "b-trial" : "b-ok"}`}>{state.subscription.status === "essai" ? "Essai" : PACKS[state.subscription.pack].name}</span>
         </div>
         <div className="card col" style={{ gap: 14 }}>
           <b className="h3">Informations personnelles</b>
           <TextField label="Nom" value={name} onChange={setName} autoComplete="name" />
-          <TextField label="E-mail (résumé mensuel)" type="email" value={email} onChange={setEmail} autoComplete="email" />
+          <div className="field"><span className="lbl">Adresse e-mail (connexion et résumé mensuel)</span><div className="inp" style={{ background: "var(--bg)" }}>{u.email || "—"}</div></div>
+          <TextField label="Numéro WhatsApp pour les alertes (facultatif)" type="tel" value={phone} onChange={setPhone} prefix="+221" placeholder="77 123 45 67" autoComplete="tel-national" hint="Pour recevoir vos alertes avant coupure par WhatsApp ou SMS." />
           <div className="field"><span className="lbl">Langue</span><Seg label="Langue" value={u.lang} onChange={(v) => updateUser({ lang: v })} options={[{ value: "Français", label: "Français" }, { value: "Wolof", label: "Wolof (bientôt)" }]} /></div>
           <div className="field">
             <span className="lbl">Personnes dans le foyer</span>
             <div className="chips">{[1, 2, 3, 4, 5, 6, 8, 10].map((n) => <button key={n} type="button" className="chip" aria-pressed={u.household === n} onClick={() => updateUser({ household: n })}>{n}{n === 10 ? "+" : ""}</button>)}</div>
           </div>
-          <button type="button" className="btn btn-blue" style={{ alignSelf: "flex-start" }} onClick={() => { updateUser({ name, email, initials: name.replace(/^(M\.|Mme)\s*/, "").split(/\s+/).map((x) => x[0]).join("").slice(0, 2).toUpperCase() || u.initials }); notify("Profil enregistré"); }}>Enregistrer</button>
+          <button type="button" className="btn btn-blue" style={{ alignSelf: "flex-start" }} onClick={() => { updateUser({ name, phone: phone.replace(/^\+221\s*/, ""), initials: name.replace(/^(M\.|Mme)\s*/, "").split(/\s+/).map((x) => x[0]).join("").slice(0, 2).toUpperCase() || u.initials }); notify("Profil enregistré"); }}>Enregistrer</button>
         </div>
         <div className="card col" style={{ gap: 14 }}>
           <b className="h3">Préférences de recharge</b>

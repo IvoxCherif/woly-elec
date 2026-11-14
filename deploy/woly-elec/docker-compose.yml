@@ -68,6 +68,9 @@ services:
       - ADMIN_EMAIL=${ADMIN_EMAIL:-}
       - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:-}
       - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET:-}
+      # Connexion avec Google (Google Cloud Console → identifiants OAuth). Sans eux, le bouton Google est désactivé.
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
     volumes:
       - secrets:/run/woly:ro
     labels:

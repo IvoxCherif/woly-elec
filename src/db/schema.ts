@@ -9,8 +9,13 @@ const createdAt = () => timestamp("created_at", { withTimezone: true }).defaultN
 export const clients = pgTable("clients", {
   id: uuid("id").primaryKey().defaultRandom(),
   nom: text("nom").notNull().default(""),
-  telephone: text("telephone").notNull().unique(), // format +221XXXXXXXXX
-  email: text("email").notNull().default(""),
+  // Identifiant de connexion : e-mail (en minuscules), avec mot de passe et/ou compte Google
+  email: text("email").unique(),
+  motDePasseHash: text("mot_de_passe_hash"), // scrypt, null si connexion Google uniquement
+  googleId: text("google_id").unique(),
+  emailVerifie: boolean("email_verifie").notNull().default(false),
+  // Facultatif : numéro WhatsApp / SMS pour les alertes (format +221XXXXXXXXX)
+  telephone: text("telephone").unique(),
   langue: text("langue").notNull().default("Français"),
   canaux: jsonb("canaux").$type<{ push: boolean; whatsapp: boolean; sms: boolean; email: boolean }>().notNull(),
   relances: integer("relances").notNull().default(2),

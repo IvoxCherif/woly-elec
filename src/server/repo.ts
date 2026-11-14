@@ -6,6 +6,7 @@ import type { Action } from "@/lib/actions";
 import type { AlertItem, Meter, Objective, Recharge, State, StoredReading, Usage, User } from "@/lib/demo";
 import { addDays, alertThreshold, autonomyDays, DEFAULT_TARIFF, kwhForAmount, setActiveTariff, tariffFromJson, tariffToJson, tierIndexFor, type TariffJson } from "@/lib/engine";
 import { isoDate } from "@/lib/format";
+import { normalizePhone } from "./phone";
 import { annualPrice, IA_QUOTA_PER_METER, monthlyPrice, PACKS, PAYMENT_METHODS, TRIAL_DAYS, type Pack } from "@/lib/pricing";
 import { computeStats } from "@/lib/stats";
 import { TEMPLATES } from "@/lib/templates";
@@ -27,7 +28,7 @@ const num = (v: unknown, min: number, max: number, code = "valeur_invalide") => 
 };
 const str = (v: unknown, max = 120) => String(v ?? "").trim().slice(0, max);
 const isDate = (v: unknown) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
-const formatPhone = (p: string) => p.replace(/^\+221(\d{2})(\d{3})(\d{2})(\d{2})$/, "+221 $1 $2 $3 $4");
+const formatPhone = (p: string | null) => (p ? p.replace(/^\+221(\d{2})(\d{3})(\d{2})(\d{2})$/, "+221 $1 $2 $3 $4") : "");
 const initialsOf = (name: string) =>
   name.replace(/^(M\.|Mme|Mlle)\s*/i, "").split(/\s+/).filter(Boolean).map((x) => x[0]).join("").slice(0, 2).toUpperCase() || "WE";
 const OBJECTIVES: Objective[] = ["mois", "coupure", "economiser"];
@@ -76,7 +77,7 @@ export async function buildState(db: DB, clientId: string, today = todayLocal())
     name: c.nom || "Client Woly Elec",
     initials: initialsOf(c.nom),
     phone: formatPhone(c.telephone),
-    email: c.email,
+    email: c.email ?? "",
     lang: c.langue === "Wolof" ? "Wolof" : "Français",
     channels: c.canaux,
     relances: c.relances,
@@ -124,8 +125,11 @@ export async function buildState(db: DB, clientId: string, today = todayLocal())
 
 // ——— Inscription ———
 
+/** Identité vérifiée : e-mail + mot de passe (empreinte scrypt) ou compte Google. */
+export type Identity = { kind: "email"; email: string; passwordHash: string } | { kind: "google"; sub: string; email: string; name?: string };
+
 export type SignupInput = {
-  phone: string;
+  identity: Identity;
   name?: string;
   meter: { number: string; name?: string; usage?: string; phase?: string };
   reading?: { balanceKwh: number; monthKwh: number; yesterdayKwh: number };
@@ -138,24 +142,34 @@ export async function signup(db: DB, input: SignupInput, today = todayLocal()): 
   const number = str(input.meter?.number, 40);
   const digits = number.replace(/\D/g, "");
   if (digits.length < 8) throw new ActionError("compteur_invalide");
-  const [exists] = await db.select({ id: t.clients.id }).from(t.clients).where(eq(t.clients.telephone, input.phone));
+  const id = input.identity;
+  const email = id.email.trim().toLowerCase();
+  const [exists] = await db.select({ id: t.clients.id }).from(t.clients).where(eq(t.clients.email, email));
   if (exists) throw new ActionError("deja_inscrit", 409);
+  if (id.kind === "google") {
+    const [g] = await db.select({ id: t.clients.id }).from(t.clients).where(eq(t.clients.googleId, id.sub));
+    if (g) throw new ActionError("deja_inscrit", 409);
+  }
   await loadActiveTariff(db);
   const todayIso = isoDate(today);
 
   return db.transaction(async (tx) => {
-    // Une seule période d'essai par téléphone et par numéro de compteur
-    const used = await tx.select().from(t.essais).where(inArray(t.essais.cle, [`tel:${input.phone}`, `compteur:${digits}`]));
+    // Une seule période d'essai par adresse e-mail (ou compte Google) et par numéro de compteur
+    const keys = [`email:${email}`, `compteur:${digits}`, ...(id.kind === "google" ? [`google:${id.sub}`] : [])];
+    const used = await tx.select().from(t.essais).where(inArray(t.essais.cle, keys));
     const trialAllowed = used.length === 0;
-    await tx.insert(t.essais).values([{ cle: `tel:${input.phone}` }, { cle: `compteur:${digits}` }]).onConflictDoNothing();
+    await tx.insert(t.essais).values(keys.map((cle) => ({ cle }))).onConflictDoNothing();
 
     const p = input.prefs ?? {};
     const [c] = await tx
       .insert(t.clients)
       .values({
-        telephone: input.phone,
-        nom: str(input.name, 80),
-        canaux: { push: true, whatsapp: p.whatsapp !== false, sms: true, email: false },
+        email,
+        motDePasseHash: id.kind === "email" ? id.passwordHash : null,
+        googleId: id.kind === "google" ? id.sub : null,
+        emailVerifie: id.kind === "google", // Google garantit l'adresse ; l'e-mail seul sera vérifié quand l'envoi d'e-mails sera branché
+        nom: str(input.name || (id.kind === "google" ? id.name : ""), 80),
+        canaux: { push: true, whatsapp: p.whatsapp !== false, sms: true, email: true },
         jourRecharge: [1, 5, 10, 15, 20, 25].includes(Number(p.rechargeDay)) ? Number(p.rechargeDay) : 1,
         objectif: OBJECTIVES.includes(p.objective as Objective) ? (p.objective as string) : "mois",
         consentement: true,
@@ -357,10 +371,15 @@ export async function applyAction(db: DB, clientId: string, a: Action, today = t
       const p = a.patch ?? {};
       const set: Partial<typeof t.clients.$inferInsert> = {};
       if (p.name !== undefined) set.nom = str(p.name, 80);
-      if (p.email !== undefined) {
-        const e = str(p.email, 120);
-        if (e && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new ActionError("email_invalide");
-        set.email = e;
+      if (p.phone !== undefined) {
+        const raw = str(p.phone, 30);
+        const phone = raw ? normalizePhone(raw) : null;
+        if (raw && !phone) throw new ActionError("telephone_invalide");
+        if (phone) {
+          const [other] = await db.select({ id: t.clients.id }).from(t.clients).where(eq(t.clients.telephone, phone));
+          if (other && other.id !== clientId) throw new ActionError("telephone_deja_utilise", 409);
+        }
+        set.telephone = phone;
       }
       if (p.lang !== undefined) set.langue = p.lang === "Wolof" ? "Wolof" : "Français";
       if (p.channels !== undefined) set.canaux = { push: !!p.channels.push, whatsapp: !!p.channels.whatsapp, sms: !!p.channels.sms, email: !!p.channels.email };
@@ -496,6 +515,8 @@ export async function adminUsers(db: DB) {
       id: t.clients.id,
       nom: t.clients.nom,
       telephone: t.clients.telephone,
+      email: t.clients.email,
+      google: t.clients.googleId,
       createdAt: t.clients.createdAt,
       lastSeenAt: t.clients.lastSeenAt,
       offre: t.abonnements.offre,
@@ -515,7 +536,9 @@ export async function adminUsers(db: DB) {
     return {
       id: r.id,
       name: r.nom || "—",
-      phone: maskPhone(r.telephone),
+      phone: r.telephone ? maskPhone(r.telephone) : "—",
+      email: r.email ?? "—",
+      method: r.google ? "Google" : "E-mail",
       meters,
       readings: Number(r.releves),
       pack: r.statut === "essai" ? "Essai" : PACKS[pack].name,

@@ -24,6 +24,8 @@ const ERRORS: Record<string, string> = {
   montant_invalide: "Montant invalide.",
   paiement_indisponible: "Le paiement en ligne n'est pas encore disponible.",
   non_connecte: "Votre session a expiré : reconnectez-vous.",
+  telephone_invalide: "Numéro invalide : 9 chiffres, par exemple 77 123 45 67.",
+  telephone_deja_utilise: "Ce numéro est déjà utilisé par un autre compte.",
 };
 
 type Ctx = {
@@ -214,7 +216,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
     updateUser: (patch) => {
       setState((s) => ({ ...s, user: { ...s.user, ...patch } }));
-      const { phone: _p, initials: _i, ...rest } = patch;
+      const { initials: _i, email: _e, ...rest } = patch;
       void send({ type: "user.update", patch: rest });
     },
     markAlertsRead: () => {
