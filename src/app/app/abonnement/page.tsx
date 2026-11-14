@@ -8,6 +8,7 @@ import { IA_QUOTA_PER_METER, monthlyPrice, annualPrice, PACKS, TRIAL_DAYS } from
 
 export default function Abonnement() {
   const { state, today, changePack, notify } = useStore();
+  const quota = state.iaQuota ?? IA_QUOTA_PER_METER;
   const sub = state.subscription;
   const left = trialDaysLeft(state, today);
   const n = state.meters.length;
@@ -21,12 +22,14 @@ export default function Abonnement() {
           <div className="row">
             <span className="lab">Offre actuelle</span>
             <span className="sp" />
-            <span className={`badge ${sub.status === "essai" ? "b-trial" : sub.status === "actif" ? "b-ok" : "b-risk"}`}>{sub.status === "essai" ? "Essai gratuit" : sub.status === "actif" ? "Actif" : "Expiré"}</span>
+            {sub.vip ? <span className="badge b-ia">VIP · offert</span> : <span className={`badge ${sub.status === "essai" ? "b-trial" : sub.status === "actif" ? "b-ok" : "b-risk"}`}>{sub.status === "essai" ? "Essai gratuit" : sub.status === "actif" ? "Actif" : "Expiré"}</span>}
           </div>
           <div className="col" style={{ gap: 2 }}>
             <b className="big" style={{ fontSize: 30 }}>{PACKS[sub.pack].name}</b>
             <span className="sm">
-              {sub.status === "essai"
+              {sub.vip
+                ? `${n} compteur${n > 1 ? "s" : ""} · accès offert par Woly Elec, sans paiement`
+                : sub.status === "essai"
                 ? `Essai complet · 1 compteur · expire le ${ddmmyyyy(sub.trialEnd)}`
                 : sub.status === "actif"
                   ? `${n} compteur${n > 1 ? "s" : ""} · ${sub.cycle} · renouvellement le ${sub.renewsAt ? ddmmyyyy(sub.renewsAt) : "—"}`
@@ -39,15 +42,15 @@ export default function Abonnement() {
               <span className="sm"><b className="ink">{left} jour{left > 1 ? "s" : ""} restant{left > 1 ? "s" : ""}</b> sur {TRIAL_DAYS}. Sans abonnement, vous ne recevrez plus vos alertes de coupure ni votre montant exact.</span>
             </>
           )}
-          {sub.status === "actif" && (
+          {sub.status === "actif" && !sub.vip && (
             <span className="sm">Prix de renouvellement : <b className="ink">{fcfa(renewal)}</b>{sub.cycle === "annuel" ? " par an à partir de la 2e année (12 mois payés)" : " par mois"}.</span>
           )}
-          <div className="row wrapf" style={{ gap: 10 }}>
+          {!sub.vip && <div className="row wrapf" style={{ gap: 10 }}>
             <Link className="btn btn-yel" href="/app/abonnement/paiement">{sub.status === "actif" ? "Renouveler ou modifier" : sub.status === "essai" ? "S'abonner" : "Me réabonner"}</Link>
             <button type="button" className="btn btn-line" onClick={() => { changePack(other); notify(`Pack changé : ${PACKS[other].name}`); }}>
               Passer à {PACKS[other].name}
             </button>
-          </div>
+          </div>}
         </div>
         <div className="card col" style={{ gap: 14, padding: 24 }}>
           <span className="lab">Compteurs</span>
@@ -75,12 +78,12 @@ export default function Abonnement() {
               const u = state.iaUsed[m.id] ?? 0;
               return (
                 <div key={m.id} className="col" style={{ gap: 6 }}>
-                  <div className="row"><b className="big" style={{ fontSize: 22 }}>{u}/{IA_QUOTA_PER_METER}</b><span className="sm">{m.name}</span></div>
-                  <div className="tr" style={{ background: "var(--g1)" }}><b style={{ width: `${(u / IA_QUOTA_PER_METER) * 100}%`, background: "var(--blue)" }} /></div>
+                  <div className="row"><b className="big" style={{ fontSize: 22 }}>{u}/{quota}</b><span className="sm">{m.name}</span></div>
+                  <div className="tr" style={{ background: "var(--g1)" }}><b style={{ width: `${(u / Math.max(1, quota)) * 100}%`, background: "var(--blue)" }} /></div>
                 </div>
               );
             })}
-            <span className="xs mut">Le quota est de 30 requêtes par compteur et n&apos;est pas partagé entre compteurs. Renouvelé le 1er du mois.</span>
+            <span className="xs mut">Le quota est de {quota} requêtes par compteur et n&apos;est pas partagé entre compteurs. Renouvelé le 1er du mois.</span>
           </div>
         ) : (
           <div className="card col" style={{ gap: 10 }}>

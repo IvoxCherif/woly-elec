@@ -44,6 +44,43 @@ export async function loadActiveTariff(db: DB): Promise<TariffJson> {
   return json;
 }
 
+// ——— Assistant IA : offre effective (VIP), quota et consommation ———
+
+const QUOTA_KEY = "ia_quota";
+
+/** Quota général de questions IA par compteur et par mois (réglable dans l'administration). */
+export async function globalIaQuota(db: DB): Promise<number> {
+  const [row] = await db.select().from(t.parametres).where(eq(t.parametres.cle, QUOTA_KEY));
+  const v = Number(row?.valeur);
+  return row && Number.isInteger(v) && v >= 0 ? v : IA_QUOTA_PER_METER;
+}
+
+export async function setGlobalIaQuota(db: DB, value: number) {
+  const v = Math.round(num(value, 0, 10_000, "quota_invalide"));
+  await db.insert(t.parametres).values({ cle: QUOTA_KEY, valeur: v }).onConflictDoUpdate({ target: t.parametres.cle, set: { valeur: v, updatedAt: new Date() } });
+}
+
+/** Quota applicable à un client : son quota propre s'il en a un, sinon le quota général. */
+export async function iaQuotaFor(db: DB, clientId: string): Promise<number> {
+  const [c] = await db.select({ q: t.clients.quotaIa }).from(t.clients).where(eq(t.clients.id, clientId));
+  return c?.q ?? (await globalIaQuota(db));
+}
+
+/** Abonnement effectif : un client VIP a Woly Elec IA actif, sans paiement. */
+export async function effectiveSub(db: DB, clientId: string) {
+  const [[sub], [c]] = await Promise.all([
+    db.select().from(t.abonnements).where(eq(t.abonnements.clientId, clientId)),
+    db.select({ vip: t.clients.vip }).from(t.clients).where(eq(t.clients.id, clientId)),
+  ]);
+  if (c?.vip) return { offre: "ia", statut: "actif", vip: true };
+  return { offre: sub?.offre ?? "ia", statut: sub?.statut ?? "expire", vip: false };
+}
+
+/** Trace un appel à l'API Claude (tokens et coût) pour le suivi de consommation. */
+export async function recordIaCall(db: DB, v: { clientId: string; meterId: string; model: string; inputTokens: number; outputTokens: number; costUsd: number; statut: "ok" | "refus" }) {
+  await db.insert(t.iaAppels).values({ clientId: v.clientId, compteurId: v.meterId, modele: v.model, tokensEntree: v.inputTokens, tokensSortie: v.outputTokens, coutUsd: v.costUsd, statut: v.statut });
+}
+
 // ——— État complet du compte client (même forme que le mode démo) ———
 
 export async function buildState(db: DB, clientId: string, today = todayLocal()): Promise<State | null> {
@@ -74,6 +111,7 @@ export async function buildState(db: DB, clientId: string, today = todayLocal())
     db.select().from(t.iaMessages).where(eq(t.iaMessages.clientId, clientId)).orderBy(desc(t.iaMessages.id)).limit(40),
   ]);
 
+  const iaQuota = c.quotaIa ?? (await globalIaQuota(db));
   const user: User = {
     name: c.nom || "Client Woly Elec",
     initials: initialsOf(c.nom),
@@ -96,8 +134,9 @@ export async function buildState(db: DB, clientId: string, today = todayLocal())
     scenario: "essai",
     user,
     subscription: {
-      pack: (sub?.offre ?? "ia") as Pack,
-      status: (sub?.statut ?? "expire") as State["subscription"]["status"],
+      pack: (c.vip ? "ia" : (sub?.offre ?? "ia")) as Pack,
+      status: (c.vip ? "actif" : (sub?.statut ?? "expire")) as State["subscription"]["status"],
+      vip: c.vip || undefined,
       cycle: (sub?.cycle ?? "mensuel") as State["subscription"]["cycle"],
       trialStart: sub?.essaiDebut ?? todayIso,
       trialEnd: sub?.essaiFin ?? todayIso,
@@ -120,6 +159,7 @@ export async function buildState(db: DB, clientId: string, today = todayLocal())
       (a): AlertItem => ({ id: a.id, meterId: a.compteurId ?? "", tone: a.ton as AlertItem["tone"], icon: a.icone ?? undefined, title: a.titre, body: a.message, date: isoDate(a.createdAt), read: a.lue, channel: a.canal as AlertItem["channel"] }),
     ),
     iaUsed: Object.fromEntries(usage.map((u) => [u.compteurId, u.requetes])),
+    iaQuota,
     chat: chat.reverse().map((m) => ({ role: m.role === "u" ? "u" : "a", text: m.texte })),
   };
 }
@@ -331,8 +371,8 @@ export async function applyAction(db: DB, clientId: string, a: Action, today = t
       return;
     }
     case "meter.add": {
-      const [sub] = await db.select().from(t.abonnements).where(eq(t.abonnements.clientId, clientId));
-      if (sub?.statut !== "actif") throw new ActionError("abonnement_requis", 402);
+      const sub = await effectiveSub(db, clientId);
+      if (sub.statut !== "actif") throw new ActionError("abonnement_requis", 402);
       const number = str(a.meter.number, 40);
       if (number.replace(/\D/g, "").length < 8 || !str(a.meter.name)) throw new ActionError("compteur_invalide");
       await db.insert(t.compteurs).values({
@@ -392,8 +432,8 @@ export async function applyAction(db: DB, clientId: string, a: Action, today = t
       if (p.lang !== undefined) set.langue = p.lang === "Wolof" ? "Wolof" : "Français";
       if (p.channels !== undefined) set.canaux = { push: !!p.channels.push, whatsapp: !!p.channels.whatsapp, sms: !!p.channels.sms, email: !!p.channels.email };
       if (p.relances !== undefined) {
-        const [sub] = await db.select().from(t.abonnements).where(eq(t.abonnements.clientId, clientId));
-        set.relances = sub?.offre === "ia" ? Math.round(num(p.relances, 0, 6)) : 2; // réglable seulement avec Woly Elec IA
+        const sub = await effectiveSub(db, clientId);
+        set.relances = sub.offre === "ia" ? Math.round(num(p.relances, 0, 6)) : 2; // réglable seulement avec Woly Elec IA
       }
       if (p.rechargeDay !== undefined) set.jourRecharge = Math.round(num(p.rechargeDay, 1, 28));
       if (p.objective !== undefined && OBJECTIVES.includes(p.objective)) set.objectif = p.objective;
@@ -443,11 +483,11 @@ export async function applyAction(db: DB, clientId: string, a: Action, today = t
       return;
     case "ia": {
       await ownedMeter(db, clientId, a.meterId);
-      const [sub] = await db.select().from(t.abonnements).where(eq(t.abonnements.clientId, clientId));
-      if (sub?.offre !== "ia" || sub.statut === "expire") throw new ActionError("offre_ia_requise", 402);
+      const sub = await effectiveSub(db, clientId);
+      if (sub.offre !== "ia" || sub.statut === "expire") throw new ActionError("offre_ia_requise", 402);
       const mois = todayIso.slice(0, 7);
       const [u] = await db.select().from(t.iaUsage).where(and(eq(t.iaUsage.compteurId, a.meterId), eq(t.iaUsage.mois, mois)));
-      if ((u?.requetes ?? 0) >= IA_QUOTA_PER_METER) throw new ActionError("quota_atteint", 429);
+      if ((u?.requetes ?? 0) >= (await iaQuotaFor(db, clientId))) throw new ActionError("quota_atteint", 429);
       await db
         .insert(t.iaUsage)
         .values({ compteurId: a.meterId, mois, requetes: 1 })
@@ -525,6 +565,8 @@ export async function adminUsers(db: DB) {
       telephone: t.clients.telephone,
       email: t.clients.email,
       google: t.clients.googleId,
+      vip: t.clients.vip,
+      quotaIa: t.clients.quotaIa,
       createdAt: t.clients.createdAt,
       lastSeenAt: t.clients.lastSeenAt,
       offre: t.abonnements.offre,
@@ -549,10 +591,12 @@ export async function adminUsers(db: DB) {
       method: r.google ? "Google" : "E-mail",
       meters,
       readings: Number(r.releves),
-      pack: r.statut === "essai" ? "Essai" : PACKS[pack].name,
-      status: r.statut === "actif" ? "Actif" : r.statut === "essai" ? "Essai" : "Expiré",
+      pack: r.vip ? "VIP · Woly Elec IA" : r.statut === "essai" ? "Essai" : PACKS[pack].name,
+      status: r.vip || r.statut === "actif" ? "Actif" : r.statut === "essai" ? "Essai" : "Expiré",
+      vip: r.vip,
+      quotaIa: r.quotaIa,
       expires: (r.statut === "essai" ? r.essaiFin : r.renouvellement) ?? "—",
-      monthly: r.statut === "actif" ? monthlyPrice(pack, Math.max(1, meters)) : 0,
+      monthly: !r.vip && r.statut === "actif" ? monthlyPrice(pack, Math.max(1, meters)) : 0,
       createdAt: isoDate(r.createdAt),
       lastSeen: isoDate(r.lastSeenAt),
     };
@@ -645,4 +689,71 @@ export async function setSupportStatus(db: DB, id: number, statut: string) {
   if (!(SUPPORT_STATUTS as readonly string[]).includes(statut)) throw new ActionError("statut_invalide");
   const [row] = await db.update(t.demandesSupport).set({ statut, updatedAt: new Date() }).where(eq(t.demandesSupport.id, id)).returning({ id: t.demandesSupport.id });
   if (!row) throw new ActionError("demande_introuvable", 404);
+}
+
+// ——— Administration : assistant IA ———
+
+export async function setClientVip(db: DB, clientId: string, vip: boolean) {
+  const r = await db.update(t.clients).set({ vip }).where(eq(t.clients.id, clientId)).returning({ id: t.clients.id });
+  if (!r.length) throw new ActionError("client_introuvable", 404);
+}
+
+/** Quota propre à un client ; null pour revenir au quota général. */
+export async function setClientIaQuota(db: DB, clientId: string, value: number | null) {
+  const q = value === null ? null : Math.round(num(value, 0, 10_000, "quota_invalide"));
+  const r = await db.update(t.clients).set({ quotaIa: q }).where(eq(t.clients.id, clientId)).returning({ id: t.clients.id });
+  if (!r.length) throw new ActionError("client_introuvable", 404);
+}
+
+type IaSum = { appels: number; tokensEntree: number; tokensSortie: number; coutUsd: number };
+
+/** Consommation de l'API Claude : ce mois-ci, par jour (30 jours), par mois (6 mois), plus gros consommateurs. */
+export async function adminIa(db: DB, now = new Date()) {
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const d30 = addDays(new Date(now.getFullYear(), now.getMonth(), now.getDate()), -29);
+  const m6 = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const sum = {
+    appels: sql<number>`count(*)::int`,
+    entree: sql<number>`coalesce(sum(${t.iaAppels.tokensEntree}),0)::int`,
+    sortie: sql<number>`coalesce(sum(${t.iaAppels.tokensSortie}),0)::int`,
+    cout: sql<number>`coalesce(sum(${t.iaAppels.coutUsd}),0)::float8`,
+  };
+  const day = sql<string>`to_char(${t.iaAppels.createdAt}, 'YYYY-MM-DD')`;
+  const month = sql<string>`to_char(${t.iaAppels.createdAt}, 'YYYY-MM')`;
+  const [[mois], [total], parJour, parMois, top, [vips], quota] = await Promise.all([
+    db.select(sum).from(t.iaAppels).where(gte(t.iaAppels.createdAt, monthStart)),
+    db.select(sum).from(t.iaAppels),
+    db.select({ jour: day, ...sum }).from(t.iaAppels).where(gte(t.iaAppels.createdAt, d30)).groupBy(day),
+    db.select({ mois: month, ...sum }).from(t.iaAppels).where(gte(t.iaAppels.createdAt, m6)).groupBy(month).orderBy(desc(month)),
+    db
+      .select({ id: t.clients.id, nom: t.clients.nom, email: t.clients.email, vip: t.clients.vip, ...sum })
+      .from(t.iaAppels)
+      .innerJoin(t.clients, eq(t.clients.id, t.iaAppels.clientId))
+      .where(gte(t.iaAppels.createdAt, monthStart))
+      .groupBy(t.clients.id)
+      .orderBy(desc(sql`sum(${t.iaAppels.coutUsd})`))
+      .limit(10),
+    db.select({ n: count() }).from(t.clients).where(eq(t.clients.vip, true)),
+    globalIaQuota(db),
+  ]);
+  const fmt = (r: { appels: number; entree: number; sortie: number; cout: number }): IaSum => ({
+    appels: Number(r.appels),
+    tokensEntree: Number(r.entree),
+    tokensSortie: Number(r.sortie),
+    coutUsd: Number(r.cout),
+  });
+  const byDay = new Map(parJour.map((r) => [r.jour, fmt(r)]));
+  const empty: IaSum = { appels: 0, tokensEntree: 0, tokensSortie: 0, coutUsd: 0 };
+  return {
+    mois: fmt(mois),
+    total: fmt(total),
+    parJour: Array.from({ length: 30 }, (_, i) => {
+      const iso = isoDate(addDays(d30, i));
+      return { jour: iso, ...(byDay.get(iso) ?? empty) };
+    }),
+    parMois: parMois.map((r) => ({ mois: r.mois, ...fmt(r) })),
+    top: top.map((r) => ({ id: r.id, name: r.nom || "—", email: r.email ?? "—", vip: r.vip, ...fmt(r) })),
+    vips: Number(vips.n),
+    quota,
+  };
 }

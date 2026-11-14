@@ -1,13 +1,12 @@
 import { and, eq } from "drizzle-orm";
-import { abonnements, compteurs, iaUsage } from "@/db/schema";
+import { compteurs, iaUsage } from "@/db/schema";
 import { contextFor, localAnswer } from "@/lib/assistant";
 import { isoDate } from "@/lib/format";
-import { IA_QUOTA_PER_METER } from "@/lib/pricing";
 import { computeStats } from "@/lib/stats";
 import { currentClientId } from "@/server/auth";
 import { askClaude, CLAUDE_MODEL, claudeKeyStatus } from "@/server/claude";
 import { json, readJson, withDb } from "@/server/http";
-import { applyAction, buildState } from "@/server/repo";
+import { applyAction, buildState, effectiveSub, iaQuotaFor, recordIaCall } from "@/server/repo";
 import { clientIp, isBlocked, recordFailure } from "@/server/ratelimit";
 
 export const runtime = "nodejs";
@@ -36,10 +35,10 @@ export async function POST(req: Request) {
 
     const [m] = await db.select({ id: compteurs.id }).from(compteurs).where(and(eq(compteurs.id, body.meterId), eq(compteurs.clientId, clientId)));
     if (!m) return json({ error: "compteur_introuvable" }, 404);
-    const [sub] = await db.select().from(abonnements).where(eq(abonnements.clientId, clientId));
-    if (sub?.offre !== "ia" || sub.statut === "expire") return json({ error: "offre_ia_requise" }, 402);
+    const sub = await effectiveSub(db, clientId); // un client VIP a l'offre IA sans payer
+    if (sub.offre !== "ia" || sub.statut === "expire") return json({ error: "offre_ia_requise" }, 402);
     const [u] = await db.select().from(iaUsage).where(and(eq(iaUsage.compteurId, m.id), eq(iaUsage.mois, isoDate(new Date()).slice(0, 7))));
-    if ((u?.requetes ?? 0) >= IA_QUOTA_PER_METER) return json({ error: "quota_atteint" }, 429);
+    if ((u?.requetes ?? 0) >= (await iaQuotaFor(db, clientId))) return json({ error: "quota_atteint" }, 429);
 
     const state = await buildState(db, clientId);
     if (!state) return json({ error: "non_connecte" }, 401);
@@ -47,6 +46,7 @@ export async function POST(req: Request) {
     recordFailure(ipKey, 3600_000); // compte les questions par IP
 
     const r = await askClaude(contextFor(stats), state.chat, question);
+    if (r.usage) await recordIaCall(db, { clientId, meterId: m.id, ...r.usage, model: r.usage.model, statut: r.ok ? "ok" : "refus" });
     if (!r.ok) {
       // Repli : réponse du moteur de calcul, non décomptée du quota
       return json({ answer: localAnswer(question, stats), source: "moteur", raison: r.reason, state });

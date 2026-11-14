@@ -331,12 +331,12 @@ export function BarChart({ data, label }: { data: { label: string; value: number
     <div className="col" style={{ gap: 8 }} role="img" aria-label={label}>
       <div className="bars">
         {data.map((d, i) => (
-          <i key={d.label} className={i === data.length - 1 ? "on" : ""} style={{ height: `${Math.max(4, (d.value / max) * 100)}%` }} title={d.hint ?? String(d.value)} />
+          <i key={i} className={i === data.length - 1 ? "on" : ""} style={{ height: `${Math.max(4, (d.value / max) * 100)}%` }} title={d.hint ?? String(d.value)} />
         ))}
       </div>
       <div className="trl">
-        {data.map((d) => (
-          <span key={d.label} style={{ flex: 1, textAlign: "center" }}>{d.label}</span>
+        {data.map((d, i) => (
+          <span key={i} style={{ flex: 1, textAlign: "center" }}>{d.label}</span>
         ))}
       </div>
     </div>

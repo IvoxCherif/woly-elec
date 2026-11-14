@@ -6,7 +6,7 @@ import path from "node:path";
 import * as schema from "@/db/schema";
 import type { DB } from "@/db";
 import { seed } from "@/db/seed";
-import { ActionError, adminAlerts, adminOverview, adminSupport, adminUsers, applyAction, buildState, createSupportRequest, publishTariff, setSupportStatus, signup } from "./repo";
+import { ActionError, adminAlerts, adminIa, recordIaCall, setClientIaQuota, setClientVip, setGlobalIaQuota, adminOverview, adminSupport, adminUsers, applyAction, buildState, createSupportRequest, publishTariff, setSupportStatus, signup } from "./repo";
 import { checkEmailCode, sendEmailCode } from "./email-code";
 import { effectiveAdminHash, saveAdminHash } from "./admin-password-store";
 import { computeStats } from "@/lib/stats";
@@ -175,5 +175,51 @@ describe("base de données Woly Elec", () => {
     process.env.ADMIN_PASSWORD_HASH = "scrypt:cc:hpanel-2"; // identifiants régénérés avec le script
     expect(await effectiveAdminHash(db)).toBe("scrypt:cc:hpanel-2");
     delete process.env.ADMIN_PASSWORD_HASH;
+  });
+  it("VIP : Woly Elec IA offert sans paiement, retiré proprement", async () => {
+    const id = await signup(db, signupInput("vip@exemple.sn", "0145 9999 001"), today);
+    await applyAction(db, id, { type: "pack", pack: "simple" }, today);
+    let s = (await buildState(db, id, addDays(today, 40)))!; // essai terminé
+    expect(s.subscription.status).toBe("expire");
+    await expect(applyAction(db, id, { type: "ia", meterId: s.meters[0].id, question: "q", answer: "r" }, today)).rejects.toThrow("offre_ia_requise");
+    await setClientVip(db, id, true);
+    s = (await buildState(db, id, addDays(today, 40)))!;
+    expect(s.subscription).toMatchObject({ pack: "ia", status: "actif", vip: true });
+    await applyAction(db, id, { type: "ia", meterId: s.meters[0].id, question: "q", answer: "r" }, today);
+    expect((await adminUsers(db)).find((u) => u.id === id)).toMatchObject({ vip: true, status: "Actif", monthly: 0 });
+    await setClientVip(db, id, false);
+    s = (await buildState(db, id, addDays(today, 40)))!;
+    expect(s.subscription.vip).toBeUndefined();
+    expect(s.subscription.pack).toBe("simple");
+  });
+
+  it("quota IA réglable : général, puis propre à un client", async () => {
+    const id = await signup(db, signupInput("quota@exemple.sn", "0145 9999 002"), today);
+    const meter = (await buildState(db, id, today))!.meters[0].id;
+    expect((await buildState(db, id, today))!.iaQuota).toBe(30);
+    await setGlobalIaQuota(db, 2);
+    expect((await buildState(db, id, today))!.iaQuota).toBe(2);
+    await applyAction(db, id, { type: "ia", meterId: meter, question: "1", answer: "r" }, today);
+    await applyAction(db, id, { type: "ia", meterId: meter, question: "2", answer: "r" }, today);
+    await expect(applyAction(db, id, { type: "ia", meterId: meter, question: "3", answer: "r" }, today)).rejects.toThrow("quota_atteint");
+    await setClientIaQuota(db, id, 5);
+    expect((await buildState(db, id, today))!.iaQuota).toBe(5);
+    await applyAction(db, id, { type: "ia", meterId: meter, question: "3", answer: "r" }, today);
+    await setClientIaQuota(db, id, null);
+    expect((await buildState(db, id, today))!.iaQuota).toBe(2);
+    await expect(setGlobalIaQuota(db, -1)).rejects.toThrow("quota_invalide");
+    await setGlobalIaQuota(db, 30);
+  });
+
+  it("résume la consommation de l'API Claude", async () => {
+    await recordIaCall(db, { clientId, meterId, model: "claude-haiku-5-5", inputTokens: 1000, outputTokens: 200, costUsd: 0.0002, statut: "ok" });
+    await recordIaCall(db, { clientId, meterId, model: "claude-haiku-5-5", inputTokens: 500, outputTokens: 100, costUsd: 0.0001, statut: "ok" });
+    const r = await adminIa(db);
+    expect(r.mois).toMatchObject({ appels: 2, tokensEntree: 1500, tokensSortie: 300 });
+    expect(r.mois.coutUsd).toBeCloseTo(0.0003, 6);
+    expect(r.parJour).toHaveLength(30);
+    expect(r.parJour.at(-1)!.appels).toBe(2);
+    expect(r.top[0]).toMatchObject({ id: clientId, appels: 2 });
+    expect(r.quota).toBe(30);
   });
 });

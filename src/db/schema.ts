@@ -24,6 +24,10 @@ export const clients = pgTable("clients", {
   foyer: integer("foyer").notNull().default(1),
   budget: integer("budget").notNull().default(0),
   consentement: boolean("consentement").notNull().default(false),
+  // VIP : accès à Woly Elec IA offert par l'administrateur, sans paiement
+  vip: boolean("vip").notNull().default(false),
+  // Quota de questions IA par compteur et par mois propre à ce client (null = quota général)
+  quotaIa: integer("quota_ia"),
   createdAt: createdAt(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -148,6 +152,23 @@ export const iaMessages = pgTable("ia_messages", {
   texte: text("texte").notNull(),
   createdAt: createdAt(),
 });
+
+/** Chaque appel à l'API Claude : tokens consommés et coût, pour le suivi dans l'administration. */
+export const iaAppels = pgTable(
+  "ia_appels",
+  {
+    id: serial("id").primaryKey(),
+    clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
+    compteurId: uuid("compteur_id").references(() => compteurs.id, { onDelete: "set null" }),
+    modele: text("modele").notNull(),
+    tokensEntree: integer("tokens_entree").notNull().default(0),
+    tokensSortie: integer("tokens_sortie").notNull().default(0),
+    coutUsd: real("cout_usd").notNull().default(0),
+    statut: text("statut").notNull().default("ok"), // ok | refus
+    createdAt: createdAt(),
+  },
+  (t) => [index("ia_appels_date_idx").on(t.createdAt), index("ia_appels_client_idx").on(t.clientId, t.createdAt)],
+);
 
 /** Essais déjà consommés : un seul essai par téléphone et par numéro de compteur, même après suppression du compte. */
 export const essais = pgTable("essais", {

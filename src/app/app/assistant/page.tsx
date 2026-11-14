@@ -16,6 +16,7 @@ export default function Assistant() {
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const used = state.iaUsed[s.meter.id] ?? 0;
+  const quota = state.iaQuota ?? IA_QUOTA_PER_METER;
   const ia = state.subscription.pack === "ia";
 
   useEffect(() => end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), [state.chat.length]);
@@ -23,7 +24,7 @@ export default function Assistant() {
   async function send(text: string) {
     const question = text.trim();
     if (!question || busy) return;
-    if (used >= IA_QUOTA_PER_METER) return notify("Quota atteint : renouvelé le 1er du mois");
+    if (used >= quota) return notify("Quota atteint : renouvelé le 1er du mois");
     setBusy(true);
     setQ("");
     if (state.mode !== "server") {
@@ -96,8 +97,8 @@ export default function Assistant() {
       </div>
       <div className="col" style={{ gap: 20 }}>
         <div className="card col" style={{ gap: 8 }}>
-          <div className="row"><span className="badge b-ia">{used}/{IA_QUOTA_PER_METER} requêtes ce mois-ci</span></div>
-          <div className="tr" style={{ background: "var(--g1)", height: 10 }}><b style={{ width: `${(used / IA_QUOTA_PER_METER) * 100}%`, background: "var(--blue)" }} /></div>
+          <div className="row"><span className="badge b-ia">{used}/{quota} requêtes ce mois-ci</span></div>
+          <div className="tr" style={{ background: "var(--g1)", height: 10 }}><b style={{ width: `${(used / Math.max(1, quota)) * 100}%`, background: "var(--blue)" }} /></div>
           <span className="xs mut">Quota par compteur ({s.meter.name}) · renouvelé le 1er du mois</span>
         </div>
         <div className="card col" style={{ gap: 10, background: "var(--g1)", borderColor: "var(--g2)" }}>

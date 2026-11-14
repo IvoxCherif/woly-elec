@@ -22,7 +22,20 @@ Règles :
 const g = globalThis as unknown as { __wolyClaude?: Anthropic };
 const client = () => (g.__wolyClaude ??= new Anthropic());
 
-export type ClaudeResult = { ok: true; text: string; model: string } | { ok: false; reason: "non_configure" | "refus" | "quota_api" | "erreur" };
+/** Prix en dollars par million de tokens (Claude Haiku 5.5), modifiables par variables d'environnement. */
+const PRICE_IN = Number(process.env.ANTHROPIC_PRICE_INPUT) || 0.1;
+const PRICE_OUT = Number(process.env.ANTHROPIC_PRICE_OUTPUT) || 0.5;
+
+export type ClaudeUsage = { model: string; inputTokens: number; outputTokens: number; costUsd: number };
+const usageOf = (model: string, u: { input_tokens?: number | null; output_tokens?: number | null; cache_creation_input_tokens?: number | null; cache_read_input_tokens?: number | null }): ClaudeUsage => {
+  const input = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+  const output = u.output_tokens ?? 0;
+  return { model, inputTokens: input, outputTokens: output, costUsd: (input * PRICE_IN + output * PRICE_OUT) / 1_000_000 };
+};
+
+export type ClaudeResult =
+  | { ok: true; text: string; model: string; usage: ClaudeUsage }
+  | { ok: false; reason: "non_configure" | "refus" | "quota_api" | "erreur"; usage?: ClaudeUsage };
 
 /**
  * Pose la question à Claude avec le contexte chiffré du compteur (calculé par le serveur)
@@ -46,13 +59,14 @@ export async function askClaude(context: string, history: { role: "u" | "a"; tex
       messages,
     });
     // Refus des filtres de sécurité : pas de repli serveur sur Haiku, on répond avec le moteur local
-    if (response.stop_reason === "refusal") return { ok: false, reason: "refus" };
+    const usage = usageOf(response.model, response.usage);
+    if (response.stop_reason === "refusal") return { ok: false, reason: "refus", usage };
     const text = response.content
       .map((b) => (b.type === "text" ? b.text : ""))
       .join("")
       .trim();
-    if (!text) return { ok: false, reason: "erreur" };
-    return { ok: true, text, model: response.model };
+    if (!text) return { ok: false, reason: "erreur", usage };
+    return { ok: true, text, model: response.model, usage };
   } catch (error) {
     if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) {
       console.error("[ia] clé Anthropic refusée : vérifiez ANTHROPIC_API_KEY");

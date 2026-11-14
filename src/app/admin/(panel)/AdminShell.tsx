@@ -13,6 +13,7 @@ const NAV = [
   { href: "/admin/tarifs", label: "Table de tarifs", icon: "calc", title: "Table de tarifs" },
   { href: "/admin/messages", label: "Modèles de messages", icon: "chat", title: "Modèles de messages" },
   { href: "/admin/alertes", label: "Journal des alertes", icon: "bell", title: "Journal des alertes" },
+  { href: "/admin/ia", label: "Assistant IA", icon: "sparkle", title: "Assistant IA · consommation Claude" },
   { href: "/admin/support", label: "Support", icon: "chat", title: "Support et réclamations" },
 ];
 

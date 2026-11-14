@@ -13,6 +13,7 @@ import { IA_QUOTA_PER_METER } from "@/lib/pricing";
 export default function Dashboard() {
   const s = useMeterStats();
   const { state } = useStore();
+  const quota = state.iaQuota ?? IA_QUOTA_PER_METER;
   const { openReleve, openRecharge } = useAppUI();
   const [range, setRange] = useState<"7" | "14" | "30">("14");
   const spend = useMonthlySpend(s.meter.id);
@@ -179,7 +180,7 @@ export default function Dashboard() {
             </span>
             <span className="sp" />
             <span className="badge b-gr">
-              {iaUsed}/{IA_QUOTA_PER_METER} requêtes
+              {iaUsed}/{quota} requêtes
             </span>
           </div>
           <div className="chat">

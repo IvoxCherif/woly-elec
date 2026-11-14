@@ -1,7 +1,8 @@
 import { isAdmin } from "@/server/auth";
 import { json, readJson, withDb } from "@/server/http";
-import { adminAlerts, adminOverview, adminSupport, adminTariffs, adminTemplates, adminUsers, publishTariff, saveTemplate, setSupportStatus } from "@/server/repo";
+import { ActionError, adminAlerts, adminIa, adminOverview, setClientIaQuota, setClientVip, setGlobalIaQuota, adminSupport, adminTariffs, adminTemplates, adminUsers, publishTariff, saveTemplate, setSupportStatus } from "@/server/repo";
 import type { TariffJson } from "@/lib/engine";
+import { CLAUDE_MODEL, claudeKeyStatus } from "@/server/claude";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,8 @@ export async function GET(req: Request) {
         return json(await adminTemplates(db));
       case "support":
         return json(await adminSupport(db));
+      case "ia":
+        return json({ ...(await adminIa(db)), modele: CLAUDE_MODEL, cle: await claudeKeyStatus() });
       default:
         return json({ error: "vue_inconnue" }, 400);
     }
@@ -34,7 +37,24 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!(await isAdmin())) return json({ error: "non_autorise" }, 401);
   return withDb(async (db) => {
-    const body = await readJson<{ type: string; config?: TariffJson; version?: string; id?: string | number; texte?: string; statut?: string }>(req);
+    const body = await readJson<{ type: string; config?: TariffJson; version?: string; id?: string | number; texte?: string; statut?: string; vip?: boolean; valeur?: number | null }>(req);
+    try {
+      if (body?.type === "ia_quota" && typeof body.valeur === "number") {
+        await setGlobalIaQuota(db, body.valeur);
+        return json({ ok: true });
+      }
+      if (body?.type === "vip" && body.id && typeof body.vip === "boolean") {
+        await setClientVip(db, String(body.id), body.vip);
+        return json({ ok: true });
+      }
+      if (body?.type === "quota_client" && body.id && (body.valeur === null || typeof body.valeur === "number")) {
+        await setClientIaQuota(db, String(body.id), body.valeur);
+        return json({ ok: true });
+      }
+    } catch (e) {
+      if (e instanceof ActionError) return json({ error: e.code }, e.status);
+      throw e;
+    }
     if (body?.type === "support" && body.id !== undefined && body.statut) {
       await setSupportStatus(db, Number(body.id), body.statut);
       return json({ ok: true });

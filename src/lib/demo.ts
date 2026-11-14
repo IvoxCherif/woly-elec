@@ -55,6 +55,8 @@ export type Subscription = {
   renewsAt?: string;
   year: number;
   payments: Payment[];
+  /** Accès Woly Elec IA offert par l'administrateur */
+  vip?: boolean;
 };
 
 export type User = {
@@ -92,6 +94,8 @@ export type State = {
   appliances: Appliance[];
   alerts: AlertItem[];
   iaUsed: Record<string, number>;
+  /** Questions IA autorisées par compteur et par mois (30 par défaut) */
+  iaQuota?: number;
   chat: ChatMsg[];
 };
 
