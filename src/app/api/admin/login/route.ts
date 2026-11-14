@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { ADMIN_COOKIE, SESSION_HOURS, createSessionToken, sessionSecret } from "@/lib/admin-session";
 import { verifyPassword } from "@/lib/admin-password";
+import { getDb } from "@/db";
+import { effectiveAdminHash } from "@/server/admin-password-store";
 
 export const runtime = "nodejs";
 
@@ -15,7 +17,8 @@ function clientIp(req: Request) {
 
 export async function POST(req: Request) {
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const hash = process.env.ADMIN_PASSWORD_HASH;
+  // Mot de passe réinitialisé par e-mail (en base) s'il existe, sinon celui de hPanel
+  const hash = await effectiveAdminHash(await getDb().catch(() => null));
   const secret = sessionSecret();
   if (!email || !hash || !secret) {
     return NextResponse.json({ error: "non_configure" }, { status: 503 });

@@ -8,6 +8,7 @@ import type { DB } from "@/db";
 import { seed } from "@/db/seed";
 import { ActionError, adminAlerts, adminOverview, adminSupport, adminUsers, applyAction, buildState, createSupportRequest, publishTariff, setSupportStatus, signup } from "./repo";
 import { checkEmailCode, sendEmailCode } from "./email-code";
+import { effectiveAdminHash, saveAdminHash } from "./admin-password-store";
 import { computeStats } from "@/lib/stats";
 import { isoDate } from "@/lib/format";
 import { addDays } from "@/lib/engine";
@@ -164,5 +165,15 @@ describe("base de données Woly Elec", () => {
     const list = await adminSupport(db);
     expect(list[0].statut).toBe("resolu");
     expect(list[0].categorie).toBe("reclamation");
+  });
+
+  it("mot de passe admin : la version réinitialisée par e-mail ne vaut que pour l'empreinte hPanel qu'elle remplace", async () => {
+    process.env.ADMIN_PASSWORD_HASH = "scrypt:aa:hpanel-1";
+    expect(await effectiveAdminHash(db)).toBe("scrypt:aa:hpanel-1");
+    await saveAdminHash(db, "scrypt:bb:reinitialise");
+    expect(await effectiveAdminHash(db)).toBe("scrypt:bb:reinitialise");
+    process.env.ADMIN_PASSWORD_HASH = "scrypt:cc:hpanel-2"; // identifiants régénérés avec le script
+    expect(await effectiveAdminHash(db)).toBe("scrypt:cc:hpanel-2");
+    delete process.env.ADMIN_PASSWORD_HASH;
   });
 });

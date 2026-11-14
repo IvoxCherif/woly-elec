@@ -205,3 +205,10 @@ export const demandesSupport = pgTable(
   },
   (t) => [index("demandes_support_statut_idx").on(t.statut, t.createdAt)],
 );
+
+/** Paramètres modifiables par l'application (ex. mot de passe administrateur réinitialisé par e-mail). */
+export const parametres = pgTable("parametres", {
+  cle: text("cle").primaryKey(),
+  valeur: jsonb("valeur").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});

@@ -68,12 +68,18 @@ const p = (t: string) => `<p style="margin:0 0 14px;font-size:15px;line-height:1
 const button = (href: string, label: string) =>
   `<p style="margin:20px 0"><a href="${href}" style="display:inline-block;background:#1D4ED8;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:10px">${esc(label)}</a></p>`;
 
-export function codeMail(code: string, usage: "verification" | "reinitialisation"): Omit<Mail, "to"> {
-  const intro = usage === "verification" ? "Voici votre code pour confirmer votre adresse e-mail et créer votre compte Woly Elec :" : "Voici votre code pour choisir un nouveau mot de passe Woly Elec :";
-  const subject = usage === "verification" ? `${code} est votre code de vérification Woly Elec` : `${code} est votre code de réinitialisation Woly Elec`;
+export function codeMail(code: string, usage: "verification" | "reinitialisation" | "admin"): Omit<Mail, "to"> {
+  const intro =
+    usage === "verification"
+      ? "Voici votre code pour confirmer votre adresse e-mail et créer votre compte Woly Elec :"
+      : usage === "admin"
+        ? "Voici votre code pour choisir un nouveau mot de passe ADMINISTRATEUR Woly Elec :"
+        : "Voici votre code pour choisir un nouveau mot de passe Woly Elec :";
+  const subject =
+    usage === "verification" ? `${code} est votre code de vérification Woly Elec` : usage === "admin" ? `${code} : réinitialisation du mot de passe administrateur Woly Elec` : `${code} est votre code de réinitialisation Woly Elec`;
   return {
     subject,
-    html: layout(usage === "verification" ? "Confirmez votre adresse e-mail" : "Mot de passe oublié", `${p(intro)}
+    html: layout(usage === "verification" ? "Confirmez votre adresse e-mail" : usage === "admin" ? "Mot de passe administrateur oublié" : "Mot de passe oublié", `${p(intro)}
 <p style="margin:18px 0;font:800 34px Arial,sans-serif;letter-spacing:8px;color:#0B3D2E;background:#E3EEE8;border-radius:12px;padding:14px;text-align:center">${code}</p>
 ${p("Ce code expire dans 10 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet e-mail.")}`),
     text: `${intro}\n\n${code}\n\nCe code expire dans 10 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.\n\nWoly Elec — ${SUPPORT_EMAIL}`,

@@ -42,6 +42,8 @@ npm run admin:credentials
 
 Le script demande l'e-mail et le mot de passe (masqué) et affiche `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` (empreinte scrypt) et `ADMIN_SESSION_SECRET`. Mettez-les dans `.env.local` en local, et dans les variables du projet Docker `woly-elec` sur le VPS. Sans ces variables, l'admin reste fermé.
 
+Mot de passe administrateur oublié : sur `/admin/login`, « Mot de passe oublié ? » envoie un code à 6 chiffres (10 minutes) uniquement à `ADMIN_EMAIL`. Le nouveau mot de passe est enregistré en base (table `parametres`) et remplace celui de hPanel tant que `ADMIN_PASSWORD_HASH` n'est pas régénéré.
+
 ## Pages
 
 | Zone | Route | Contenu |

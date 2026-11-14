@@ -7,7 +7,7 @@ import { clientSessionSecret } from "./secrets";
 import { codeMail, mailEnabled, sendMail } from "./mail";
 
 /** Codes à 6 chiffres envoyés par e-mail : vérification d'adresse à l'inscription, mot de passe oublié. */
-export type CodeUsage = "verification" | "reinitialisation";
+export type CodeUsage = "verification" | "reinitialisation" | "admin";
 
 const TTL_MIN = 10;
 const MAX_PER_HOUR = 5;
