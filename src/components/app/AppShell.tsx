@@ -8,6 +8,7 @@ import { Logo } from "../ui";
 import { trialDaysLeft, useStore } from "@/lib/store";
 import { PACKS } from "@/lib/pricing";
 import { ReleveModal, RechargeModal } from "./Modals";
+import { BackButton, parentOf } from "../BackButton";
 
 const NAV = [
   { href: "/app", label: "Accueil", icon: "home" },
@@ -122,6 +123,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
         <main id="contenu">
           <div className="topbar">
+            {path !== "/app" && <BackButton fallback={parentOf(path)} compact />}
             <h1 className="mont ink" style={{ fontWeight: 800, fontSize: 22 }}>
               {title}
             </h1>

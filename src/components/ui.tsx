@@ -74,6 +74,8 @@ export function Gauge({
           stroke={stroke}
           strokeWidth="15"
           strokeLinecap="round"
+          pathLength={1}
+          className="gp-anim"
         />
         <path d="M118 48 95 80h13l-6 22 24-33h-13z" fill={level === "warn" ? "#CA9A04" : "#FACC15"} />
       </svg>

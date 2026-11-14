@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { NavTracker } from "@/components/BackButton";
 
 export const metadata: Metadata = {
   title: { default: "Woly Elec — Votre électricité, sous contrôle", template: "%s · Woly Elec" },
@@ -22,7 +23,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <NavTracker />
+        {children}
+      </body>
     </html>
   );
 }

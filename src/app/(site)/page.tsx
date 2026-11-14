@@ -27,7 +27,7 @@ export default function Home() {
       <section className="hero">
         <svg className="wm" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z" /></svg>
         <div className="wrap" style={{ paddingTop: 72, paddingBottom: 72, display: "flex", flexWrap: "wrap", gap: 48, alignItems: "center", position: "relative", zIndex: 1 }}>
-          <div className="col" style={{ flex: "1 1 520px", gap: 24 }}>
+          <div className="col hero-in" style={{ flex: "1 1 520px", gap: 24 }}>
             <span className="badge b-trial" style={{ alignSelf: "flex-start" }}><Icon name="star" size="s" /> Une solution 100 % sénégalaise</span>
             <h1 className="h1" style={{ color: "#fff", fontSize: "clamp(36px,5vw,62px)" }}>
               Maîtrisez votre consommation d&apos;électricité <span style={{ color: "var(--yel)" }}>prépayée.</span>
@@ -42,7 +42,7 @@ export default function Home() {
             <p className="sm" style={{ color: "#9CC4B0" }}>30 jours gratuits, un compteur, sans engagement pour essayer.</p>
           </div>
           <div style={{ flex: "1 1 360px", display: "flex", justifyContent: "center" }}>
-            <div style={{ width: 310, height: 610, borderRadius: 44, background: "#0A1F18", padding: 9, boxShadow: "0 40px 80px rgba(0,0,0,.4)" }} aria-hidden="true">
+            <div className="phone-float" style={{ width: 310, height: 610, borderRadius: 44, background: "#0A1F18", padding: 9, boxShadow: "0 40px 80px rgba(0,0,0,.4)" }} aria-hidden="true">
               <div style={{ width: "100%", height: "100%", borderRadius: 36, background: "var(--bg)", padding: "20px 14px", display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
                 <div className="row" style={{ gap: 8 }}>
                   <span className="logo">

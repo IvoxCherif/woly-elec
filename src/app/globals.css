@@ -84,3 +84,60 @@ button.sw[aria-checked="true"]::after{left:23px}
   body,.app,.pad{background:#fff!important}
   .card{box-shadow:none}
 }
+
+/* ——— Câble électrique en arrière-plan du site ——— */
+.site-root{position:relative;overflow-x:clip}
+.cable-bg{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden}
+.cable-bg svg{display:block}
+.site-root .hdr,.site-root .back-bar,.site-root .wrap,.site-root .ft .wrap{position:relative;z-index:2}
+.site-root .hdr{z-index:3}
+.cable-flow{animation:cableFlow 1.1s linear infinite}
+@keyframes cableFlow{to{stroke-dashoffset:-37}}
+.cable-rays{animation:cableRays 1.6s linear infinite;transform-origin:0 0}
+@keyframes cableRays{to{transform:rotate(360deg)}}
+.cable-core{animation:cablePulse .9s ease-in-out infinite alternate}
+@keyframes cablePulse{from{opacity:.75}to{opacity:1}}
+
+/* ——— Bouton Retour ——— */
+.back-btn{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px 0 10px;border-radius:99px;border:1.5px solid var(--ln);background:#fff;color:var(--g9);font:600 14px Inter;cursor:pointer;transition:background .15s,border-color .15s,transform .15s}
+.back-btn:hover{background:var(--g1);border-color:var(--g2);transform:translateX(-2px)}
+.back-btn.dark{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);color:#fff}
+.back-btn.dark:hover{background:rgba(255,255,255,.16)}
+.back-btn.compact{min-height:40px;padding:0 12px 0 8px}
+.back-bar{padding-top:14px;padding-bottom:0}
+@media (max-width:760px){.back-btn.compact span{display:none}.back-btn.compact{padding:0 10px}}
+
+/* ——— Animations du site ——— */
+.btn{transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease}
+.btn:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(11,61,46,.14)}
+.btn:not(:disabled):active{transform:translateY(0)}
+.card{transition:transform .2s ease,box-shadow .2s ease}
+.site-root .sec .card:hover{transform:translateY(-3px);box-shadow:0 2px 4px rgba(11,61,46,.06),0 14px 34px rgba(11,61,46,.1)}
+
+/* apparition au défilement (classes posées par ScrollReveal) */
+.rv{opacity:0;transform:translateY(26px);transition:opacity .7s ease var(--rv-delay,0ms),transform .7s cubic-bezier(.2,.7,.2,1) var(--rv-delay,0ms)}
+.rv.rv-in{opacity:1;transform:none}
+
+/* entrée du haut de page */
+.hero-in>*{animation:heroIn .8s cubic-bezier(.2,.7,.2,1) both}
+.hero-in>*:nth-child(1){animation-delay:.05s}
+.hero-in>*:nth-child(2){animation-delay:.15s}
+.hero-in>*:nth-child(3){animation-delay:.28s}
+.hero-in>*:nth-child(4){animation-delay:.4s}
+.hero-in>*:nth-child(5){animation-delay:.5s}
+@keyframes heroIn{from{opacity:0;transform:translateY(22px)}}
+.phone-float{animation:phoneIn 1s cubic-bezier(.2,.7,.2,1) .2s both,phoneFloat 6s ease-in-out 1.2s infinite}
+@keyframes phoneIn{from{opacity:0;transform:translateY(40px) rotate(2deg)}}
+@keyframes phoneFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.hero .wm{animation:wmPulse 4s ease-in-out infinite}
+@keyframes wmPulse{0%,100%{opacity:.07}50%{opacity:.13}}
+.hl>span{position:relative}
+
+/* jauge : l'arc se dessine à l'affichage */
+.gp-anim{stroke-dasharray:1;stroke-dashoffset:0;animation:gaugeDraw 1.3s cubic-bezier(.2,.7,.2,1) .2s both}
+@keyframes gaugeDraw{from{stroke-dashoffset:1}}
+
+@media (prefers-reduced-motion:reduce){
+  .rv{opacity:1;transform:none}
+  .cable-flow,.cable-rays,.cable-core,.phone-float,.hero-in>*,.hero .wm,.gp-anim{animation:none!important}
+}

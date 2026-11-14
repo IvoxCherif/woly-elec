@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { Logo } from "@/components/ui";
+import { BackButton } from "@/components/BackButton";
 
 const NAV = [
   { href: "/admin", label: "Tableau de bord", icon: "home", title: "Vue d'ensemble" },
@@ -37,6 +38,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </aside>
       <main id="contenu">
         <div className="topbar">
+          {path !== "/admin" && <BackButton fallback="/admin" compact />}
           <h1 className="mont ink" style={{ fontWeight: 800, fontSize: 22 }}>{current?.title ?? "Administration"}</h1>
           <span className="sp" />
           <span className="avatar" style={{ background: "var(--g9)", color: "var(--yel)" }}>CT</span>

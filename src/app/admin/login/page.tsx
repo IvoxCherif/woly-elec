@@ -5,6 +5,7 @@ import { Suspense, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { Callout, Logo, TextField } from "@/components/ui";
 import { CodeInput, CodeTimer } from "@/components/site/CodeInput";
+import { BackButton } from "@/components/BackButton";
 
 type Mode = "connexion" | "oubli" | "nouveau";
 
@@ -141,7 +142,10 @@ function LoginForm() {
 
 export default function AdminLogin() {
   return (
-    <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "var(--g9)" }}>
+    <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 20, background: "var(--g9)" }}>
+      <div style={{ width: "100%", maxWidth: 440 }}>
+        <BackButton fallback="/" label="Retour au site" dark />
+      </div>
       <Suspense>
         <LoginForm />
       </Suspense>

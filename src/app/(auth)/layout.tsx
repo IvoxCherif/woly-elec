@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
+import { BackButton } from "@/components/BackButton";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
       <header className="hdr">
         <div className="wrap" style={{ minHeight: 64 }}>
+          <BackButton fallback="/" compact />
           <Logo href="/" size={36} />
           <span className="sp" />
           <Link className="sm" href="/aide">Besoin d&apos;aide ?</Link>
