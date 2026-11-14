@@ -1,9 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_COOKIE, sessionSecret, verifySessionToken } from "@/lib/admin-session";
 
-/** Toute page /admin (sauf /admin/login) exige une session administrateur valide. */
+/**
+ * 1. www.wolyelec.com → wolyelec.com (adresse unique : Google n'accepte qu'une adresse de retour).
+ * 2. Toute page /admin (sauf /admin/login) exige une session administrateur valide.
+ */
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const { pathname, search } = req.nextUrl;
+  const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "").split(",")[0].trim().toLowerCase();
+  if (host.startsWith("www.")) return NextResponse.redirect(`https://${host.slice(4)}${pathname}${search}`, 308);
+
+  if (!pathname.startsWith("/admin")) return NextResponse.next();
   if (pathname === "/admin/login") return NextResponse.next();
 
   const secret = sessionSecret();
@@ -20,4 +27,5 @@ export async function middleware(req: NextRequest) {
   return NextResponse.redirect(url);
 }
 
-export const config = { matcher: ["/admin", "/admin/:path*"] };
+// Toutes les routes sauf les fichiers statiques de Next.js
+export const config = { matcher: ["/((?!_next/static|_next/image).*)"] };
