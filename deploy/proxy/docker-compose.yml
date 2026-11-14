@@ -1,0 +1,36 @@
+# Reverse proxy commun à tous les SaaS du VPS (projet Docker « proxy »).
+# Il écoute les ports 80/443, obtient les certificats HTTPS (Let's Encrypt)
+# et envoie chaque domaine vers le conteneur qui le déclare dans ses labels.
+# Chaque SaaS rejoint le réseau partagé « web » ; rien d'autre n'est exposé.
+
+services:
+  traefik:
+    image: traefik:v3.6
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=web
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --log.level=INFO
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - web
+
+volumes:
+  letsencrypt:
+
+networks:
+  web:
+    name: web

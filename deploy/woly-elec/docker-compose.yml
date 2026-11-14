@@ -1,0 +1,27 @@
+# SaaS Woly Elec (projet Docker « woly-elec »).
+# Image construite par GitHub Actions et publiée sur GHCR à chaque push sur main.
+# Le conteneur n'expose aucun port : Traefik (projet « proxy ») lui envoie le trafic de wolyelec.com.
+
+services:
+  app:
+    image: ghcr.io/ivoxcherif/woly-elec:latest
+    container_name: woly-elec
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      # Facultatif : active l'assistant IA (Claude). Renseigné dans les variables du projet Hostinger.
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.woly-elec.rule=Host(`wolyelec.com`) || Host(`www.wolyelec.com`)
+      - traefik.http.routers.woly-elec.entrypoints=websecure
+      - traefik.http.routers.woly-elec.tls.certresolver=le
+      - traefik.http.services.woly-elec.loadbalancer.server.port=3000
+    networks:
+      - web
+    mem_limit: 768m
+    cpus: 1.0
+
+networks:
+  web:
+    external: true
