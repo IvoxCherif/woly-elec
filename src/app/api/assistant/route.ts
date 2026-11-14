@@ -5,12 +5,17 @@ import { isoDate } from "@/lib/format";
 import { IA_QUOTA_PER_METER } from "@/lib/pricing";
 import { computeStats } from "@/lib/stats";
 import { currentClientId } from "@/server/auth";
-import { askClaude } from "@/server/claude";
+import { askClaude, CLAUDE_MODEL, claudeKeyStatus } from "@/server/claude";
 import { json, readJson, withDb } from "@/server/http";
 import { applyAction, buildState } from "@/server/repo";
 import { clientIp, isBlocked, recordFailure } from "@/server/ratelimit";
 
 export const runtime = "nodejs";
+
+/** État de l'assistant (diagnostic sans coût) : la clé est-elle présente et acceptée ? */
+export async function GET() {
+  return json({ modele: CLAUDE_MODEL, cle: await claudeKeyStatus() });
+}
 
 /**
  * Assistant Woly Elec IA (Claude Haiku 5.5).

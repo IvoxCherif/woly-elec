@@ -64,3 +64,27 @@ export async function askClaude(context: string, history: { role: "u" | "a"; tex
     return { ok: false, reason: "erreur" };
   }
 }
+
+type KeyStatus = "absente" | "ok" | "refusee" | "modele_indisponible" | "injoignable";
+const cache = globalThis as unknown as { __wolyClaudeStatus?: { at: number; status: KeyStatus } };
+
+/**
+ * Vérifie la clé sans consommer de tokens (lecture de la fiche du modèle), résultat gardé 10 minutes.
+ * Ne révèle jamais la clé : seulement « ok », « refusee », etc.
+ */
+export async function claudeKeyStatus(): Promise<KeyStatus> {
+  if (!claudeEnabled()) return "absente";
+  const c = cache.__wolyClaudeStatus;
+  if (c && Date.now() - c.at < 600_000) return c.status;
+  let status: KeyStatus;
+  try {
+    await client().models.retrieve(CLAUDE_MODEL);
+    status = "ok";
+  } catch (error) {
+    if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) status = "refusee";
+    else if (error instanceof Anthropic.NotFoundError) status = "modele_indisponible";
+    else status = "injoignable";
+  }
+  cache.__wolyClaudeStatus = { at: Date.now(), status };
+  return status;
+}
