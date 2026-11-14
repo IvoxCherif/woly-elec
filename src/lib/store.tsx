@@ -50,6 +50,10 @@ type Ctx = {
   subscribe: (pack: Pack, cycle: Cycle, meters: number, method: PaymentMethod) => { id: string; amount: number; until: string };
   changePack: (pack: Pack) => void;
   askIa: (question: string, answer: string) => boolean;
+  /** Mode serveur : applique l'état renvoyé par une route (ex. assistant IA). */
+  replaceState: (s: State) => void;
+  /** Ajoute un échange au fil sans le décompter (réponse du moteur local). */
+  pushChat: (question: string, answer: string) => void;
   loadScenario: (s: Scenario) => void;
   reset: () => void;
   logout: () => Promise<void>;
@@ -265,6 +269,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       void send({ type: "ia", meterId: meter.id, question, answer });
       return true;
     },
+    replaceState: (s) => applyServer(s),
+    pushChat: (question, answer) => setState((s) => ({ ...s, chat: [...s.chat, { role: "u", text: question }, { role: "a", text: answer }] })),
     loadScenario: (sc) => mode === "demo" && setState(buildDemo(sc)),
     reset: () => mode === "demo" && setState(buildDemo("essai")),
     logout: async () => {

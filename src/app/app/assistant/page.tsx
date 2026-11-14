@@ -10,7 +10,7 @@ import { IA_QUOTA_PER_METER, PACKS } from "@/lib/pricing";
 const SUGGESTIONS = ["Pourquoi recharger maintenant ?", "Combien dois-je recharger ?", "Explique-moi mon bilan", "Comment économiser ?", "Pourquoi les kWh varient ?"];
 
 export default function Assistant() {
-  const { state, askIa, notify } = useStore();
+  const { state, askIa, replaceState, pushChat, notify } = useStore();
   const s = useMeterStats();
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,18 +25,26 @@ export default function Assistant() {
     if (!question || busy) return;
     if (used >= IA_QUOTA_PER_METER) return notify("Quota atteint : renouvelé le 1er du mois");
     setBusy(true);
-    let answer = localAnswer(question, s);
-    try {
-      const r = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, context: contextFor(s) }) });
-      if (r.ok) {
-        const j = await r.json();
-        if (j.answer) answer = j.answer;
-      }
-    } catch {
-      /* hors ligne : réponse locale */
-    }
-    askIa(question, answer);
     setQ("");
+    if (state.mode !== "server") {
+      // Démo : réponse du moteur de calcul local
+      askIa(question, localAnswer(question, s));
+      setBusy(false);
+      return;
+    }
+    try {
+      // Le serveur vérifie l'offre et le quota, recalcule le contexte depuis la base et interroge Claude
+      const r = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ meterId: s.meter.id, question }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.source === "claude" && j.state) replaceState(j.state);
+      else if (r.ok && j.answer) pushChat(question, j.answer);
+      else if (j.error === "quota_atteint") notify("Quota atteint : renouvelé le 1er du mois");
+      else if (j.error === "offre_ia_requise") notify("L'assistant est réservé à l'offre Woly Elec IA");
+      else if (j.error === "trop_de_requetes") notify("Trop de questions d'affilée, réessayez dans un moment");
+      else pushChat(question, localAnswer(question, s));
+    } catch {
+      pushChat(question, localAnswer(question, s)); // hors ligne : réponse locale
+    }
     setBusy(false);
   }
 

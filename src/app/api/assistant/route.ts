@@ -1,58 +1,52 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { NextResponse } from "next/server";
+import { and, eq } from "drizzle-orm";
+import { abonnements, compteurs, iaUsage } from "@/db/schema";
+import { contextFor, localAnswer } from "@/lib/assistant";
+import { isoDate } from "@/lib/format";
+import { IA_QUOTA_PER_METER } from "@/lib/pricing";
+import { computeStats } from "@/lib/stats";
+import { currentClientId } from "@/server/auth";
+import { askClaude } from "@/server/claude";
+import { json, readJson, withDb } from "@/server/http";
+import { applyAction, buildState } from "@/server/repo";
+import { clientIp, isBlocked, recordFailure } from "@/server/ratelimit";
+
+export const runtime = "nodejs";
 
 /**
- * Assistant Woly Elec IA — Claude Sonnet 5.5 (formule Woly Elec IA, 30 requêtes par mois et par compteur).
- * Le client envoie la question et le contexte chiffré calculé par le moteur ; Claude explique sans inventer de chiffres.
- * Sans identifiants Anthropic configurés (ANTHROPIC_API_KEY…), la route répond 503 et l'interface utilise
- * la réponse locale du moteur de calcul.
+ * Assistant Woly Elec IA (Claude Haiku 5.5).
+ * Réservé aux clients connectés avec l'offre Woly Elec IA ; 30 questions par mois et par compteur,
+ * comptées par le serveur. Le contexte chiffré est recalculé depuis la base (jamais fourni par le navigateur).
+ * Si Claude est indisponible, la réponse vient du moteur de calcul local (et n'est pas décomptée).
  */
-
-const SYSTEM = `Tu es l'assistant de Woly Elec, un service sénégalais indépendant (non affilié à la Senelec) qui aide les clients Woyofal (électricité prépayée) à faire durer leur crédit tout le mois.
-Règles :
-- Réponds en français simple, en 2 à 4 phrases, sans titres ni listes.
-- N'utilise QUE les chiffres fournis dans le contexte du client. N'invente aucun chiffre, aucune date, aucun tarif. Si une information manque, dis-le et propose de faire un relevé.
-- Présente les chiffres comme des estimations « d'après vos relevés ».
-- Tu ne vends pas d'électricité et tu ne parles pas au nom de la Senelec.`;
-
 export async function POST(req: Request) {
-  const hasCredentials = !!(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
-  if (!hasCredentials) return NextResponse.json({ error: "assistant_non_configure" }, { status: 503 });
+  return withDb(async (db) => {
+    const clientId = await currentClientId();
+    if (!clientId) return json({ error: "non_connecte" }, 401);
+    const ipKey = `ia:${clientIp(req)}`;
+    if (isBlocked(ipKey, 40, 3600_000)) return json({ error: "trop_de_requetes" }, 429);
 
-  let body: { question?: string; context?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "requete_invalide" }, { status: 400 });
-  }
-  const question = (body.question ?? "").toString().slice(0, 600).trim();
-  const context = (body.context ?? "").toString().slice(0, 4000);
-  if (!question) return NextResponse.json({ error: "question_vide" }, { status: 400 });
+    const body = await readJson<{ meterId?: string; question?: string }>(req);
+    const question = String(body?.question ?? "").trim().slice(0, 600);
+    if (!question || !body?.meterId) return json({ error: "question_vide" }, 400);
 
-  // TODO production : authentifier l'utilisateur et décompter le quota (30 requêtes/mois/compteur) côté serveur.
-  const client = new Anthropic();
-  try {
-    const response = await client.beta.messages.create({
-      model: "claude-sonnet-5-5",
-      max_tokens: 1024,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: { effort: "low" },
-      system: SYSTEM,
-      messages: [{ role: "user", content: `Contexte du client (calculé par le moteur Woly Elec) :\n${context}\n\nQuestion : ${question}` }],
-    });
-    if (response.stop_reason === "refusal") {
-      return NextResponse.json({ error: "refus" }, { status: 422 });
+    const [m] = await db.select({ id: compteurs.id }).from(compteurs).where(and(eq(compteurs.id, body.meterId), eq(compteurs.clientId, clientId)));
+    if (!m) return json({ error: "compteur_introuvable" }, 404);
+    const [sub] = await db.select().from(abonnements).where(eq(abonnements.clientId, clientId));
+    if (sub?.offre !== "ia" || sub.statut === "expire") return json({ error: "offre_ia_requise" }, 402);
+    const [u] = await db.select().from(iaUsage).where(and(eq(iaUsage.compteurId, m.id), eq(iaUsage.mois, isoDate(new Date()).slice(0, 7))));
+    if ((u?.requetes ?? 0) >= IA_QUOTA_PER_METER) return json({ error: "quota_atteint" }, 429);
+
+    const state = await buildState(db, clientId);
+    if (!state) return json({ error: "non_connecte" }, 401);
+    const stats = computeStats(state, m.id, new Date(new Date().setHours(0, 0, 0, 0)));
+    recordFailure(ipKey, 3600_000); // compte les questions par IP
+
+    const r = await askClaude(contextFor(stats), state.chat, question);
+    if (!r.ok) {
+      // Repli : réponse du moteur de calcul, non décomptée du quota
+      return json({ answer: localAnswer(question, stats), source: "moteur", raison: r.reason, state });
     }
-    const text = response.content
-      .map((b) => (b.type === "text" ? b.text : ""))
-      .join("")
-      .trim();
-    return NextResponse.json({ answer: text, model: response.model });
-  } catch (error) {
-    if (error instanceof Anthropic.RateLimitError) return NextResponse.json({ error: "trop_de_requetes" }, { status: 429 });
-    if (error instanceof Anthropic.AuthenticationError) return NextResponse.json({ error: "assistant_non_configure" }, { status: 503 });
-    if (error instanceof Anthropic.APIError) return NextResponse.json({ error: "erreur_api", status: error.status }, { status: 502 });
-    return NextResponse.json({ error: "erreur_reseau" }, { status: 502 });
-  }
+    await applyAction(db, clientId, { type: "ia", meterId: m.id, question, answer: r.text });
+    return json({ answer: r.text, source: "claude", state: await buildState(db, clientId) });
+  });
 }
