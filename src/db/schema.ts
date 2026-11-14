@@ -155,6 +155,7 @@ export const essais = pgTable("essais", {
   createdAt: createdAt(),
 });
 
+/** Codes à 6 chiffres envoyés par e-mail (vérification d'adresse, mot de passe oublié). « telephone » contient « usage:email ». */
 export const codesOtp = pgTable(
   "codes_otp",
   {
@@ -185,3 +186,22 @@ export const modelesMessages = pgTable("modeles_messages", {
   texte: text("texte").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/** Demandes de support et réclamations des utilisateurs (copie envoyée à support@wolyelec.com). */
+export const demandesSupport = pgTable(
+  "demandes_support",
+  {
+    id: serial("id").primaryKey(),
+    reference: text("reference").notNull().unique(), // WS-XXXXXX, rappelée dans les e-mails
+    clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
+    nom: text("nom").notNull().default(""),
+    email: text("email").notNull(),
+    categorie: text("categorie").notNull().default("question"), // question | reclamation | technique | paiement | compte
+    sujet: text("sujet").notNull(),
+    message: text("message").notNull(),
+    statut: text("statut").notNull().default("ouvert"), // ouvert | en_cours | resolu
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("demandes_support_statut_idx").on(t.statut, t.createdAt)],
+);

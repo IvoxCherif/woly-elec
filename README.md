@@ -26,7 +26,11 @@ PostgreSQL (Drizzle ORM). Schéma : `src/db/schema.ts` — clients, compteurs, r
 
 Comptes clients : connexion **par e-mail + mot de passe** (empreinte scrypt) ou **avec Google** (OpenID Connect). Pour activer Google : créer un identifiant OAuth « Application Web » dans Google Cloud Console, URI de redirection `https://wolyelec.com/api/auth/google/callback`, puis définir `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET`. Le numéro de téléphone est facultatif (profil) et sert aux alertes WhatsApp / SMS.
 
-Phase pilote : les paiements sont simulés et tracés comme tels (`PAYMENT_MODE=demo`) ; pas encore d'e-mail de réinitialisation du mot de passe (aide via WhatsApp).
+E-mails (messagerie Hostinger) : envoyés depuis `wolyelec@wolyelec.com` (alias de la boîte `support@wolyelec.com`), réponses vers `support@wolyelec.com`. Code à 6 chiffres pour vérifier l'adresse à l'inscription et pour « Mot de passe oublié », e-mail de bienvenue, alertes avant coupure (canal e-mail), accusé de réception du support. Variable requise : `SMTP_PASSWORD` (mot de passe de la boîte support). En développement sans SMTP, les codes s'affichent à l'écran et les e-mails dans la console.
+
+Support : formulaire sur `/aide` et `/app/support`, demandes enregistrées (table `demandes_support`), copie à `support@wolyelec.com`, suivi des statuts dans `/admin/support`.
+
+Phase pilote : les paiements sont simulés et tracés comme tels (`PAYMENT_MODE=demo`).
 
 ## Accès administrateur
 

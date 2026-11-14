@@ -52,6 +52,23 @@ export async function pendingGoogle(): Promise<Extract<Identity, { kind: "google
   }
 }
 
+/** Adresse e-mail confirmée par le code à 6 chiffres, en attente de la fin de l'inscription (30 min). */
+export async function setPendingVerifiedEmail(email: string) {
+  (await cookies()).set(PENDING_COOKIE, await signValue(secretOrThrow(), "pending", JSON.stringify({ kind: "email-verifie", email }), PENDING_TTL), { ...cookieBase, maxAge: PENDING_TTL / 1000 });
+}
+
+export async function pendingVerifiedEmail(): Promise<string | null> {
+  const secret = clientSessionSecret();
+  if (!secret) return null;
+  const v = await verifyValue((await cookies()).get(PENDING_COOKIE)?.value, secret, "pending");
+  try {
+    const j = v ? JSON.parse(v) : null;
+    return j?.kind === "email-verifie" && typeof j.email === "string" ? j.email : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function clearPending() {
   (await cookies()).set(PENDING_COOKIE, "", { ...cookieBase, maxAge: 0 });
 }

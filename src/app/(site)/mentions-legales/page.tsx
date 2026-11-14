@@ -8,7 +8,7 @@ export default function Mentions() {
     <LegalPage eyebrow="Mentions légales" title="Woly Elec, un service indépendant">
       <p>Woly Elec est un service numérique d&apos;aide à la gestion de l&apos;électricité prépayée. Il ne vend pas d&apos;électricité et n&apos;est pas affilié à la Senelec.</p>
       <h2 className="h3">Éditeur</h2>
-      <p>Code&amp;Créa — [FORME JURIDIQUE, ADRESSE, NINEA ET RCCM À COMPLÉTER] — Dakar, Sénégal.<br />Contact : contact@woly-elec.sn · +221 77 123 45 67.</p>
+      <p>Code&amp;Créa — [FORME JURIDIQUE, ADRESSE, NINEA ET RCCM À COMPLÉTER] — Dakar, Sénégal.<br />Contact : support@wolyelec.com · +221 77 123 45 67.</p>
       <h2 className="h3">Directeur de la publication</h2>
       <p>[NOM À COMPLÉTER]</p>
       <h2 className="h3">Hébergement</h2>

@@ -6,12 +6,13 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { Callout, Gauge, NumField, Seg, Switch, TextField } from "@/components/ui";
 import { GoogleButton, OrSeparator } from "@/components/site/GoogleButton";
+import { CodeInput } from "@/components/site/CodeInput";
 import { kwhForAmount, monthPlan, type MeterPhase } from "@/lib/engine";
 import { days, fcfa, kwh, parseNum } from "@/lib/format";
 
 type Usage = "Ménage" | "Commerce" | "Location";
 type Objective = "mois" | "coupure" | "economiser";
-const STEPS = ["Compte", "Compteur", "Relevés", "Recharge", "Préférences", "Résultat"];
+const STEPS = ["Compte", "Vérification", "Compteur", "Relevés", "Recharge", "Préférences", "Résultat"];
 
 const GOOGLE_ERR: Record<string, string> = {
   google_indisponible: "La connexion avec Google n'est pas encore activée. Utilisez votre e-mail.",
@@ -27,6 +28,8 @@ export default function Inscription() {
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [demoCode, setDemoCode] = useState<string | null>(null);
   const [meter, setMeter] = useState("");
   const [meterName, setMeterName] = useState("Maison");
   const [usage, setUsage] = useState<Usage>("Ménage");
@@ -60,7 +63,7 @@ export default function Inscription() {
           setGoogleEmail(j.email);
           setName(j.name ?? "");
           setLive(true);
-          setStep(1);
+          setStep(2); // Google a déjà vérifié l'adresse
         })
         .catch(() => undefined);
     }
@@ -77,6 +80,7 @@ export default function Inscription() {
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
   const canNext = [
     emailOk && password.length >= 8 && password === password2,
+    code.length === 6 || live === false,
     meter.replace(/\D/g, "").length >= 8,
     bal >= 0 && veille >= 0 && mois >= 0,
     true,
@@ -87,6 +91,10 @@ export default function Inscription() {
   const ERR: Record<string, string> = {
     email_invalide: "Adresse e-mail invalide.",
     email_pris: "Cette adresse a déjà un compte : connectez-vous.",
+    code_invalide: "Code incorrect ou expiré. Vérifiez le dernier e-mail reçu.",
+    trop_de_codes: "Trop de codes demandés. Réessayez dans une heure.",
+    email_indisponible: "L'envoi d'e-mails est momentanément indisponible. Réessayez plus tard ou écrivez à support@wolyelec.com.",
+    email_non_verifie: "Votre adresse n'est pas encore confirmée : recommencez la vérification.",
     mot_de_passe_court: "Le mot de passe doit faire au moins 8 caractères.",
     deja_inscrit: "Cette adresse a déjà un compte : connectez-vous.",
     compteur_invalide: "Numéro de compteur invalide.",
@@ -99,22 +107,41 @@ export default function Inscription() {
     return { status: r.status, ok: r.ok, data: await r.json().catch(() => ({})) };
   }
 
+  async function sendCode() {
+    setBusy(true);
+    const r = await post("/api/auth/email-code", { email, usage: "verification" }).catch(() => null);
+    setBusy(false);
+    if (!r || (r.status === 503 && r.data.error === "demo")) {
+      setLive(false); // pas de base : parcours de démonstration
+      return true;
+    }
+    if (!r.ok) {
+      setError(ERR[r.data.error] ?? "Envoi du code impossible.");
+      return false;
+    }
+    setLive(true);
+    setDemoCode(r.data.demoCode ?? null);
+    return true;
+  }
+
   async function next() {
     setError(null);
     if (step === 0) {
-      setBusy(true);
-      const r = await post("/api/auth/check-email", { email }).catch(() => null);
-      setBusy(false);
-      if (!r || (r.status === 503 && r.data.error === "demo")) {
-        setLive(false); // pas de base : parcours de démonstration
-        return setStep(1);
-      }
-      if (!r.ok) return setError(ERR[r.data.error] ?? "Vérification de l'adresse impossible.");
-      if (!r.data.disponible) return setError(ERR.email_pris);
-      setLive(true);
-      return setStep(1);
+      setCode("");
+      if (await sendCode()) setStep(1);
+      return;
     }
-    if (step === 4 && live) {
+    if (step === 1 && live) {
+      setBusy(true);
+      const r = await post("/api/auth/email-verify", { email, code }).catch(() => null);
+      setBusy(false);
+      if (!r?.ok) {
+        setCode("");
+        return setError(ERR[r?.data.error] ?? "Vérification impossible.");
+      }
+      return setStep(2);
+    }
+    if (step === 5 && live) {
       setBusy(true);
       const r = await post("/api/auth/signup", {
         name,
@@ -126,7 +153,7 @@ export default function Inscription() {
       }).catch(() => null);
       setBusy(false);
       if (!r?.ok) return setError(ERR[r?.data.error] ?? "Création du compte impossible.");
-      return setStep(5);
+      return setStep(6);
     }
     setStep((x) => x + 1);
   }
@@ -153,6 +180,21 @@ export default function Inscription() {
         )}
         {step === 1 && (
           <>
+            <h1 className="h2" style={{ fontSize: 30 }}>Vérifiez votre e-mail</h1>
+            <p className="sm">
+              {live === false ? "Démonstration : tapez 6 chiffres." : <>Nous avons envoyé un code à 6 chiffres à <b className="ink">{email.trim().toLowerCase()}</b>, depuis wolyelec@wolyelec.com. Pensez à regarder dans les courriers indésirables.</>}
+            </p>
+            {demoCode && <Callout tone="info" title={`Code : ${demoCode}`}>Développement : l&apos;envoi d&apos;e-mails n&apos;est pas configuré, le code s&apos;affiche ici.</Callout>}
+            <CodeInput value={code} onChange={setCode} />
+            {live && (
+              <button type="button" className="sm" style={{ color: "var(--blue)", fontWeight: 600, alignSelf: "flex-start" }} disabled={busy} onClick={async () => { setError(null); setCode(""); if (await sendCode()) setError(null); }}>
+                Renvoyer le code
+              </button>
+            )}
+          </>
+        )}
+        {step === 2 && (
+          <>
             {googleEmail && <Callout tone="ok" icon="check" title="Compte Google vérifié">{googleEmail}</Callout>}
             <h1 className="h2" style={{ fontSize: 30 }}>Ajoutez votre compteur</h1>
             <TextField label="Numéro de compteur Woyofal" value={meter} onChange={setMeter} placeholder="0145 6789 012" hint="Inscrit sur la face avant du compteur ou sur votre ticket de recharge." />
@@ -161,7 +203,7 @@ export default function Inscription() {
             <div className="field"><span className="lbl">Type de compteur</span><Seg<MeterPhase> label="Type de compteur" value={phase} onChange={setPhase} options={[{ value: "mono", label: "Monophasé (le plus courant)" }, { value: "tri", label: "Triphasé" }]} /></div>
           </>
         )}
-        {step === 2 && (
+        {step === 3 && (
           <>
             <h1 className="h2" style={{ fontSize: 30 }}>Saisissez 3 chiffres</h1>
             <p className="sm">Sur le clavier du compteur, tapez chaque code puis recopiez la valeur affichée.</p>
@@ -171,7 +213,7 @@ export default function Inscription() {
             <div className="row sm mut" style={{ gap: 8 }}><Icon name="camera" size="s" /> Bientôt : prenez une photo du compteur, les chiffres seront lus automatiquement.</div>
           </>
         )}
-        {step === 3 && (
+        {step === 4 && (
           <>
             <h1 className="h2" style={{ fontSize: 30 }}>Votre dernière recharge</h1>
             <p className="sm">Elle permet de savoir combien de kWh vous avez déjà achetés ce mois-ci, donc votre tranche. Facultatif.</p>
@@ -180,7 +222,7 @@ export default function Inscription() {
             <NumField label="kWh reçus (sur le ticket)" unit="kWh" value={lastKwh} onChange={setLastKwh} big={false} hint={amt > 0 && !lk ? `Estimé : ≈ ${kwh(kwhForAmount(amt, { boughtMonthKwh: 0, firstRechargeOfMonth: true, phase }).kwh)}` : undefined} />
           </>
         )}
-        {step === 4 && (
+        {step === 5 && (
           <>
             <h1 className="h2" style={{ fontSize: 30 }}>Vos préférences</h1>
             <div className="field"><span className="lbl">Jour de recharge préféré</span><div className="chips">{[1, 5, 10, 15, 20, 25].map((d) => <button key={d} type="button" className="chip" aria-pressed={rechargeDay === d} onClick={() => setRechargeDay(d)}>{d === 1 ? "1er" : d}</button>)}</div></div>
@@ -190,7 +232,7 @@ export default function Inscription() {
             <p className="xs mut">En continuant, vous acceptez les <Link href="/conditions">conditions d&apos;utilisation</Link> et la <Link href="/confidentialite">politique de confidentialité</Link>. Woly Elec n&apos;est pas affilié à la Senelec.</p>
           </>
         )}
-        {step === 5 && plan && (
+        {step === 6 && plan && (
           <>
             <h1 className="h2" style={{ fontSize: 30 }}>Votre première estimation</h1>
             <div className="row wrapf" style={{ gap: 24, justifyContent: "center" }}>
@@ -206,11 +248,11 @@ export default function Inscription() {
           </>
         )}
 
-        {step < 5 && (
+        {step < 6 && (
           <div className="row" style={{ gap: 10 }}>
-            {step > 0 && !(step === 1 && googleEmail) && <button type="button" className="btn btn-line" onClick={() => { setError(null); setStep((s) => s - 1); }}>Retour</button>}
+            {step > 0 && !(step === 2 && googleEmail) && <button type="button" className="btn btn-line" onClick={() => { setError(null); setStep((s) => s - 1); }}>Retour</button>}
             <button type="button" className="btn btn-blue" style={{ flex: 1 }} disabled={!canNext || busy} onClick={next}>
-              {step === 0 ? "Continuer avec mon e-mail" : step === 3 ? (lastAmount ? "Continuer" : "Passer cette étape") : step === 4 ? "Voir mon estimation" : "Continuer"}
+              {step === 0 ? "Continuer avec mon e-mail" : step === 1 ? "Vérifier mon e-mail" : step === 4 ? (lastAmount ? "Continuer" : "Passer cette étape") : step === 5 ? "Voir mon estimation" : "Continuer"}
             </button>
           </div>
         )}

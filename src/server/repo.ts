@@ -7,6 +7,7 @@ import type { AlertItem, Meter, Objective, Recharge, State, StoredReading, Usage
 import { addDays, alertThreshold, autonomyDays, DEFAULT_TARIFF, kwhForAmount, setActiveTariff, tariffFromJson, tariffToJson, tierIndexFor, type TariffJson } from "@/lib/engine";
 import { isoDate } from "@/lib/format";
 import { normalizePhone } from "./phone";
+import { alertMail, mailEnabled, sendMail } from "./mail";
 import { annualPrice, IA_QUOTA_PER_METER, monthlyPrice, PACKS, PAYMENT_METHODS, TRIAL_DAYS, type Pack } from "@/lib/pricing";
 import { computeStats } from "@/lib/stats";
 import { TEMPLATES } from "@/lib/templates";
@@ -167,7 +168,7 @@ export async function signup(db: DB, input: SignupInput, today = todayLocal()): 
         email,
         motDePasseHash: id.kind === "email" ? id.passwordHash : null,
         googleId: id.kind === "google" ? id.sub : null,
-        emailVerifie: id.kind === "google", // Google garantit l'adresse ; l'e-mail seul sera vérifié quand l'envoi d'e-mails sera branché
+        emailVerifie: true, // Google garantit l'adresse ; sinon elle a été confirmée par le code à 6 chiffres
         nom: str(input.name || (id.kind === "google" ? id.name : ""), 80),
         canaux: { push: true, whatsapp: p.whatsapp !== false, sms: true, email: true },
         jourRecharge: [1, 5, 10, 15, 20, 25].includes(Number(p.rechargeDay)) ? Number(p.rechargeDay) : 1,
@@ -250,18 +251,25 @@ async function maybeAlert(db: DB, clientId: string, meterId: string) {
   const [custom] = await db.select().from(t.modelesMessages).where(eq(t.modelesMessages.id, tpl.id));
   const message = (custom?.texte ?? tpl.text).replace("{jours}", String(Math.max(1, Math.floor(days)))).replace("{lien}", "wolyelec.com/app");
   const ch = state.user.channels;
-  const canal = th <= 1 && ch.sms ? "sms" : ch.whatsapp ? "whatsapp" : "push";
+  const titre = th === 0 ? "Moins d'un jour d'électricité" : `Il vous reste environ ${th} jour${th > 1 ? "s" : ""}`;
+  // L'e-mail est le seul canal externe branché (WhatsApp et SMS : en attente d'un fournisseur)
+  let canal = th <= 1 && ch.sms ? "sms" : ch.whatsapp ? "whatsapp" : "push";
+  let statut = canal === "push" ? "remis" : "en_attente";
+  if (ch.email && state.user.email && mailEnabled()) {
+    const { sent } = await sendMail({ to: state.user.email, ...alertMail(`${titre} sur « ${s.meter.name} »`, message) });
+    canal = "email";
+    statut = sent ? "remis" : "echec";
+  }
   await db.insert(t.alertes).values({
     clientId,
     compteurId: meterId,
     type,
     ton: th <= 1 ? "red" : "warn",
     icone: th <= 1 ? "bolt" : "warn",
-    titre: th === 0 ? "Moins d'un jour d'électricité" : `Il vous reste environ ${th} jour${th > 1 ? "s" : ""}`,
+    titre,
     message,
     canal,
-    // WhatsApp et SMS ne sont pas encore branchés : l'alerte est visible dans l'application, l'envoi reste en attente.
-    statut: canal === "push" ? "remis" : "en_attente",
+    statut,
   });
 }
 
@@ -605,4 +613,36 @@ export async function saveTemplate(db: DB, id: string, texte: string) {
   if (!text.includes("{lien}")) throw new ActionError("lien_obligatoire");
   const [row] = await db.update(t.modelesMessages).set({ texte: text, updatedAt: new Date() }).where(eq(t.modelesMessages.id, id)).returning();
   if (!row) throw new ActionError("modele_introuvable", 404);
+}
+
+// ——— Support et réclamations ———
+
+export const SUPPORT_CATEGORIES = ["question", "reclamation", "technique", "paiement", "compte"] as const;
+export const SUPPORT_STATUTS = ["ouvert", "en_cours", "resolu"] as const;
+
+export async function createSupportRequest(
+  db: DB,
+  input: { clientId: string | null; nom: string; email: string; categorie: string; sujet: string; message: string },
+) {
+  const categorie = (SUPPORT_CATEGORIES as readonly string[]).includes(input.categorie) ? input.categorie : "question";
+  const sujet = str(input.sujet, 120);
+  const message = String(input.message ?? "").trim().slice(0, 4000);
+  if (sujet.length < 3 || message.length < 10) throw new ActionError("demande_incomplete");
+  const reference = `WS-${Date.now().toString(36).toUpperCase().slice(-6)}${Math.floor(Math.random() * 36).toString(36).toUpperCase()}`;
+  const [row] = await db
+    .insert(t.demandesSupport)
+    .values({ reference, clientId: input.clientId, nom: str(input.nom, 80), email: input.email, categorie, sujet, message })
+    .returning();
+  return row;
+}
+
+export async function adminSupport(db: DB) {
+  const rows = await db.select().from(t.demandesSupport).orderBy(desc(t.demandesSupport.createdAt)).limit(300);
+  return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() }));
+}
+
+export async function setSupportStatus(db: DB, id: number, statut: string) {
+  if (!(SUPPORT_STATUTS as readonly string[]).includes(statut)) throw new ActionError("statut_invalide");
+  const [row] = await db.update(t.demandesSupport).set({ statut, updatedAt: new Date() }).where(eq(t.demandesSupport.id, id)).returning({ id: t.demandesSupport.id });
+  if (!row) throw new ActionError("demande_introuvable", 404);
 }

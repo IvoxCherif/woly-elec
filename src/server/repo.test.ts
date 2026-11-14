@@ -6,7 +6,8 @@ import path from "node:path";
 import * as schema from "@/db/schema";
 import type { DB } from "@/db";
 import { seed } from "@/db/seed";
-import { ActionError, adminAlerts, adminOverview, adminUsers, applyAction, buildState, publishTariff, signup } from "./repo";
+import { ActionError, adminAlerts, adminOverview, adminSupport, adminUsers, applyAction, buildState, createSupportRequest, publishTariff, setSupportStatus, signup } from "./repo";
+import { checkEmailCode, sendEmailCode } from "./email-code";
 import { computeStats } from "@/lib/stats";
 import { isoDate } from "@/lib/format";
 import { addDays } from "@/lib/engine";
@@ -137,5 +138,31 @@ describe("base de données Woly Elec", () => {
     expect(actif.method).toBe("E-mail");
     expect(actif.phone).toBe("+221 77 ••• •• 67");
     expect((await adminAlerts(db)).length).toBeGreaterThan(0);
+  });
+
+  it("envoie un code à 6 chiffres par e-mail et le vérifie une seule fois", async () => {
+    const r = await sendEmailCode(db, "verification", "nouveau@exemple.sn");
+    expect(r.ok).toBe(true);
+    const code = r.ok ? r.demoCode! : ""; // hors production et sans SMTP, le code est renvoyé pour les tests
+    expect(code).toMatch(/^\d{6}$/);
+    expect(await checkEmailCode(db, "verification", "nouveau@exemple.sn", "000000".replace(/./g, (_, i) => String((Number(code[i]) + 1) % 10)))).toBe(false);
+    expect(await checkEmailCode(db, "reinitialisation", "nouveau@exemple.sn", code)).toBe(false); // autre usage
+    expect(await checkEmailCode(db, "verification", "nouveau@exemple.sn", code)).toBe(true);
+    expect(await checkEmailCode(db, "verification", "nouveau@exemple.sn", code)).toBe(false); // déjà utilisé
+  });
+
+  it("limite à 5 codes par heure et par adresse", async () => {
+    for (let i = 0; i < 5; i++) expect((await sendEmailCode(db, "reinitialisation", "limite@exemple.sn")).ok).toBe(true);
+    expect(await sendEmailCode(db, "reinitialisation", "limite@exemple.sn")).toEqual({ ok: false, error: "trop_de_codes" });
+  });
+
+  it("enregistre une réclamation et change son statut", async () => {
+    const d = await createSupportRequest(db, { clientId, nom: "M. Diallo", email: "diallo@exemple.sn", categorie: "reclamation", sujet: "Montant incorrect", message: "Le montant conseillé ne correspond pas à mon ticket." });
+    expect(d.reference).toMatch(/^WS-/);
+    await expect(createSupportRequest(db, { clientId: null, nom: "", email: "x@y.sn", categorie: "question", sujet: "ok", message: "court" })).rejects.toThrow("demande_incomplete");
+    await setSupportStatus(db, d.id, "resolu");
+    const list = await adminSupport(db);
+    expect(list[0].statut).toBe("resolu");
+    expect(list[0].categorie).toBe("reclamation");
   });
 });

@@ -66,7 +66,7 @@ export function SiteFooter() {
             <b className="wh sm">Contact</b>
             <span className="sm">Dakar, Sénégal</span>
             <a className="sm" href="https://wa.me/221771234567">WhatsApp : +221 77 123 45 67</a>
-            <a className="sm" href="mailto:contact@woly-elec.sn">contact@woly-elec.sn</a>
+            <a className="sm" href="mailto:support@wolyelec.com">support@wolyelec.com</a>
           </div>
         </div>
         <hr className="hr" style={{ background: "rgba(255,255,255,.14)" }} />
