@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Génère les variables d'accès administrateur de Woly Elec.
- *   npm run admin:credentials
+ * Génère les variables d'accès administrateur de Woly Elec (identifiant + mot de passe).
+ *   node scripts/admin-credentials.mjs
  * Le mot de passe est saisi en masqué et n'est jamais affiché ni enregistré :
  * seule son empreinte scrypt est imprimée, avec un secret de session aléatoire.
  */
@@ -21,9 +21,9 @@ function ask(question, hidden = false) {
   });
 }
 
-const email = (await ask("E-mail administrateur : ")).trim().toLowerCase();
-if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-  console.error("E-mail invalide.");
+const id = (await ask("Identifiant administrateur (pseudo, 3 à 40 caractères : lettres, chiffres, . _ -) : ")).trim().toLowerCase();
+if (!/^[a-z0-9._-]{3,40}$/.test(id)) {
+  console.error("Identifiant invalide : 3 à 40 caractères, lettres sans accent, chiffres, point, tiret ou souligné.");
   process.exit(1);
 }
 const pw = await ask("Mot de passe (12 caractères minimum) : ", true);
@@ -40,8 +40,11 @@ if (pw !== confirm) {
 const salt = randomBytes(16);
 const hash = await new Promise((res, rej) => scrypt(pw, salt, 64, (e, k) => (e ? rej(e) : res(k))));
 
-console.log("\nCopiez ces 3 lignes dans les variables d'environnement du projet Docker « woly-elec » (hPanel) :\n");
-console.log(`ADMIN_EMAIL=${email}`);
+console.log("\nDans hPanel → VPS → Docker Manager → projet « woly-elec » → Environnement,");
+console.log("remplace la valeur de ces 3 variables (garde les autres telles quelles), puis redéploie :\n");
+console.log(`ADMIN_EMAIL=${id}`);
 console.log(`ADMIN_PASSWORD_HASH=scrypt:${salt.toString("hex")}:${hash.toString("hex")}`);
 console.log(`ADMIN_SESSION_SECRET=${randomBytes(32).toString("base64url")}`);
-console.log("\nEn local, collez-les dans un fichier .env.local à la racine du projet.");
+console.log("\nNote : la variable s'appelle ADMIN_EMAIL pour des raisons historiques, mais elle contient ton identifiant.");
+console.log("Connexion : https://wolyelec.com/admin/login avec cet identifiant et ce mot de passe.");
+console.log("Mot de passe oublié : le code à 6 chiffres arrive dans la boîte support@wolyelec.com.");

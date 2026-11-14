@@ -3,6 +3,7 @@ import { ADMIN_COOKIE, SESSION_HOURS, createSessionToken, sessionSecret } from "
 import { verifyPassword } from "@/lib/admin-password";
 import { getDb } from "@/db";
 import { effectiveAdminHash } from "@/server/admin-password-store";
+import { adminIdentifier, isAdminIdentifier } from "@/server/admin-identity";
 
 export const runtime = "nodejs";
 
@@ -16,11 +17,11 @@ function clientIp(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const identifiant = adminIdentifier();
   // Mot de passe réinitialisé par e-mail (en base) s'il existe, sinon celui de hPanel
   const hash = await effectiveAdminHash(await getDb().catch(() => null));
   const secret = sessionSecret();
-  if (!email || !hash || !secret) {
+  if (!identifiant || !hash || !secret) {
     return NextResponse.json({ error: "non_configure" }, { status: 503 });
   }
 
@@ -32,18 +33,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bloque", minutes: wait }, { status: 429 });
   }
 
-  let body: { email?: string; password?: string };
+  let body: { identifiant?: string; email?: string; password?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "requete_invalide" }, { status: 400 });
   }
-  const givenEmail = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
-  // Le mot de passe est vérifié même si l'e-mail est faux : même durée de réponse dans les deux cas.
+  // Le mot de passe est vérifié même si l'identifiant est faux : même durée de réponse dans les deux cas.
   const passOk = password.length > 0 && password.length <= 256 && (await verifyPassword(password, hash));
 
-  if (!passOk || givenEmail !== email) {
+  if (!passOk || !isAdminIdentifier(body.identifiant ?? body.email)) {
     const e = entry && now - entry.since < WINDOW ? entry : { count: 0, since: now };
     e.count += 1;
     fails.set(ip, e);

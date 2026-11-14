@@ -19,7 +19,7 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const [mode, setMode] = useState<Mode>("connexion");
-  const [email, setEmail] = useState("");
+  const [identifiant, setIdentifiant] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [code, setCode] = useState("");
@@ -41,7 +41,7 @@ function LoginForm() {
   }
 
   async function requestCode() {
-    const r = await post("/api/admin/reset-code", { email });
+    const r = await post("/api/admin/reset-code", { identifiant });
     if (!r.ok) {
       setError(r.data.error === "non_configure" ? "L'accès administrateur n'est pas configuré sur ce serveur." : ERR[r.data.error] ?? "Envoi du code impossible.");
       return false;
@@ -57,11 +57,11 @@ function LoginForm() {
     setError(null);
     try {
       if (mode === "connexion") {
-        const r = await post("/api/admin/login", { email, password });
+        const r = await post("/api/admin/login", { identifiant, password });
         if (r.ok) return goAdmin();
-        if (r.data.error === "non_configure") setError("L'accès administrateur n'est pas encore configuré sur ce serveur (variables ADMIN_EMAIL, ADMIN_PASSWORD_HASH et ADMIN_SESSION_SECRET).");
+        if (r.data.error === "non_configure") setError("L'accès administrateur n'est pas encore configuré sur ce serveur (variables ADMIN_EMAIL, ADMIN_PASSWORD_HASH et ADMIN_SESSION_SECRET dans hPanel).");
         else if (r.data.error === "bloque") setError(`Trop de tentatives. Réessayez dans ${r.data.minutes} minute${r.data.minutes > 1 ? "s" : ""}.`);
-        else setError(`E-mail ou mot de passe incorrect.${typeof r.data.restants === "number" ? ` ${r.data.restants} essai${r.data.restants > 1 ? "s" : ""} restant${r.data.restants > 1 ? "s" : ""}.` : ""}`);
+        else setError(`Identifiant ou mot de passe incorrect.${typeof r.data.restants === "number" ? ` ${r.data.restants} essai${r.data.restants > 1 ? "s" : ""} restant${r.data.restants > 1 ? "s" : ""}.` : ""}`);
         setPassword("");
       } else if (mode === "oubli") {
         if (await requestCode()) {
@@ -71,7 +71,7 @@ function LoginForm() {
         }
       } else {
         if (password !== password2) return setError("Les deux mots de passe sont différents.");
-        const r = await post("/api/admin/reset", { email, code, password });
+        const r = await post("/api/admin/reset", { identifiant, code, password });
         if (r.ok) return goAdmin();
         setError(ERR[r.data.error] ?? "Réinitialisation impossible.");
       }
@@ -82,7 +82,7 @@ function LoginForm() {
     }
   }
 
-  const disabled = busy || (mode === "connexion" ? !email || !password : mode === "oubli" ? !email : code.length < 6 || password.length < 12 || !password2);
+  const disabled = busy || (mode === "connexion" ? !identifiant || !password : mode === "oubli" ? !identifiant : code.length < 6 || password.length < 12 || !password2);
 
   return (
     <form className="card col" style={{ gap: 18, padding: 32, width: "100%", maxWidth: 440 }} onSubmit={submit}>
@@ -93,14 +93,14 @@ function LoginForm() {
           {mode === "connexion"
             ? "Accès réservé à l'équipe Woly Elec."
             : mode === "oubli"
-              ? "Saisissez l'e-mail administrateur : un code à 6 chiffres, valable 10 minutes, lui sera envoyé."
-              : "Si l'adresse saisie est bien l'adresse administrateur, un code vient d'y être envoyé par wolyelec@wolyelec.com."}
+              ? "Saisissez votre identifiant administrateur : un code à 6 chiffres, valable 10 minutes, sera envoyé dans la boîte support@wolyelec.com."
+              : "Si l'identifiant est correct, un code vient d'être envoyé dans la boîte support@wolyelec.com (pensez aux courriers indésirables)."}
         </p>
       </div>
       {error && <Callout tone="red" icon="lock" title="Accès refusé">{error}</Callout>}
       {demoCode && mode === "nouveau" && <Callout tone="info" title={`Code : ${demoCode}`}>Développement : l&apos;envoi d&apos;e-mails n&apos;est pas configuré.</Callout>}
 
-      {mode !== "nouveau" && <TextField label="E-mail administrateur" type="email" value={email} onChange={setEmail} autoComplete="username" />}
+      {mode !== "nouveau" && <TextField label="Identifiant" value={identifiant} onChange={setIdentifiant} autoComplete="username" placeholder="Votre pseudo administrateur" />}
       {mode === "nouveau" && (
         <>
           <CodeInput value={code} onChange={setCode} />
