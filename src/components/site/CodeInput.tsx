@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** Saisie d'un code à 6 chiffres reçu par e-mail (collage accepté). */
 export function CodeInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -36,6 +36,33 @@ export function CodeInput({ value, onChange }: { value: string; onChange: (v: st
           }}
         />
       ))}
+    </div>
+  );
+}
+
+/** Décompte de validité du code (10 minutes) : temps restant, puis « code expiré » avec renvoi. */
+export function CodeTimer({ sentAt, minutes = 10, onResend, busy }: { sentAt: number | null; minutes?: number; onResend?: () => void; busy?: boolean }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (!sentAt) return null;
+  const left = Math.max(0, Math.ceil((sentAt + minutes * 60_000 - now) / 1000));
+  const mm = Math.floor(left / 60);
+  const ss = String(left % 60).padStart(2, "0");
+  return (
+    <div className="row wrapf" style={{ gap: 10 }}>
+      {left > 0 ? (
+        <span className="badge b-gr">Code valable encore {mm}:{ss}</span>
+      ) : (
+        <span className="badge b-risk">Code expiré</span>
+      )}
+      {onResend && (
+        <button type="button" className="sm" style={{ color: "var(--blue)", fontWeight: 600 }} disabled={busy} onClick={onResend}>
+          {left > 0 ? "Je n'ai rien reçu : renvoyer le code" : "Recevoir un nouveau code"}
+        </button>
+      )}
     </div>
   );
 }

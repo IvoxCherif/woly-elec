@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { Callout, TextField } from "@/components/ui";
 import { GoogleButton, OrSeparator } from "@/components/site/GoogleButton";
-import { CodeInput } from "@/components/site/CodeInput";
+import { CodeInput, CodeTimer } from "@/components/site/CodeInput";
 
 const ERR: Record<string, string> = {
   identifiants: "E-mail ou mot de passe incorrect.",
@@ -32,14 +32,17 @@ export default function Connexion() {
   const [password2, setPassword2] = useState("");
   const [code, setCode] = useState("");
   const [demoCode, setDemoCode] = useState<string | null>(null);
+  const [sentAt, setSentAt] = useState<number | null>(null);
   const [show, setShow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const err = new URLSearchParams(window.location.search).get("erreur");
+    const q = new URLSearchParams(window.location.search);
+    const err = q.get("erreur");
     if (err) setError(ERR[err] ?? "Connexion impossible.");
+    if (q.get("oubli") === "1") setMode("oubli");
   }, []);
 
   async function post(url: string, body: unknown) {
@@ -63,7 +66,8 @@ export default function Connexion() {
         const r = await post("/api/auth/email-code", { email, usage: "reinitialisation" });
         if (!r.ok) return setError(ERR[r.data.error] ?? "Envoi du code impossible.");
         setDemoCode(r.data.demoCode ?? null);
-        setInfo(`Si un compte existe pour ${email.trim().toLowerCase()}, un code à 6 chiffres vient d'être envoyé par wolyelec@wolyelec.com.`);
+        setSentAt(Date.now());
+        setInfo(`Si un compte existe pour ${email.trim().toLowerCase()}, un code à 6 chiffres, valable 10 minutes, vient d'être envoyé par wolyelec@wolyelec.com.`);
         setCode("");
         setMode("nouveau");
       } else {
@@ -108,7 +112,22 @@ export default function Connexion() {
           </>
         )}
         {mode !== "nouveau" && <TextField label="Adresse e-mail" type="email" value={email} onChange={setEmail} autoComplete="email" placeholder="vous@exemple.com" />}
-        {mode === "nouveau" && <CodeInput value={code} onChange={setCode} />}
+        {mode === "nouveau" && (
+          <>
+            <CodeInput value={code} onChange={setCode} />
+            <CodeTimer
+              sentAt={sentAt}
+              busy={busy}
+              onResend={async () => {
+                setError(null);
+                setCode("");
+                const r = await post("/api/auth/email-code", { email, usage: "reinitialisation" });
+                if (r.ok) setSentAt(Date.now());
+                else setError(ERR[r.data.error] ?? "Envoi du code impossible.");
+              }}
+            />
+          </>
+        )}
         {mode !== "oubli" && (
           <div className="field">
             <label htmlFor="pw">{mode === "nouveau" ? "Nouveau mot de passe (8 caractères minimum)" : "Mot de passe"}</label>
@@ -118,6 +137,11 @@ export default function Connexion() {
                 <Icon name="eye" size="s" />
               </button>
             </div>
+            {mode === "connexion" && (
+              <button type="button" className="sm" style={{ color: "var(--blue)", fontWeight: 600, alignSelf: "flex-end" }} onClick={() => { setMode("oubli"); setError(null); }}>
+                Mot de passe oublié ?
+              </button>
+            )}
           </div>
         )}
         {mode === "nouveau" && <TextField label="Confirmez le mot de passe" type="password" value={password2} onChange={setPassword2} autoComplete="new-password" />}
@@ -129,11 +153,7 @@ export default function Connexion() {
         >
           {busy ? "Un instant…" : mode === "connexion" ? "Se connecter" : mode === "oubli" ? "Recevoir mon code" : "Changer mon mot de passe"}
         </button>
-        {mode === "connexion" ? (
-          <button type="button" className="sm" style={{ color: "var(--blue)", fontWeight: 600 }} onClick={() => { setMode("oubli"); setError(null); }}>
-            Mot de passe oublié ?
-          </button>
-        ) : (
+        {mode !== "connexion" && (
           <button type="button" className="sm" style={{ color: "var(--blue)", fontWeight: 600 }} onClick={back}>
             Retour à la connexion
           </button>

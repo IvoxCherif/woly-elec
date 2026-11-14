@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { Callout, Gauge, NumField, Seg, Switch, TextField } from "@/components/ui";
 import { GoogleButton, OrSeparator } from "@/components/site/GoogleButton";
-import { CodeInput } from "@/components/site/CodeInput";
+import { CodeInput, CodeTimer } from "@/components/site/CodeInput";
 import { kwhForAmount, monthPlan, type MeterPhase } from "@/lib/engine";
 import { days, fcfa, kwh, parseNum } from "@/lib/format";
 
@@ -30,6 +30,7 @@ export default function Inscription() {
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [demoCode, setDemoCode] = useState<string | null>(null);
+  const [sentAt, setSentAt] = useState<number | null>(null);
   const [meter, setMeter] = useState("");
   const [meterName, setMeterName] = useState("Maison");
   const [usage, setUsage] = useState<Usage>("Ménage");
@@ -121,6 +122,7 @@ export default function Inscription() {
     }
     setLive(true);
     setDemoCode(r.data.demoCode ?? null);
+    setSentAt(Date.now());
     return true;
   }
 
@@ -163,7 +165,7 @@ export default function Inscription() {
       <div className="pill-step" aria-label={`Étape ${step + 1} sur ${STEPS.length} : ${STEPS[step]}`}>{STEPS.map((s, i) => <i key={s} className={i <= step ? "on" : ""} />)}</div>
       <div className="card col" style={{ gap: 18, padding: 28 }}>
         <span className="eyebrow">Étape {step + 1} sur {STEPS.length} · {STEPS[step]}</span>
-        {error && <Callout tone="red" title="Oups">{error}{error.includes("connectez-vous") && <> <Link href="/connexion">Se connecter</Link></>}</Callout>}
+        {error && <Callout tone="red" title="Oups">{error}{error.includes("connectez-vous") && <> <Link href="/connexion">Se connecter</Link> · <Link href="/connexion?oubli=1">Mot de passe oublié ?</Link></>}</Callout>}
 
         {step === 0 && (
           <>
@@ -182,15 +184,11 @@ export default function Inscription() {
           <>
             <h1 className="h2" style={{ fontSize: 30 }}>Vérifiez votre e-mail</h1>
             <p className="sm">
-              {live === false ? "Démonstration : tapez 6 chiffres." : <>Nous avons envoyé un code à 6 chiffres à <b className="ink">{email.trim().toLowerCase()}</b>, depuis wolyelec@wolyelec.com. Pensez à regarder dans les courriers indésirables.</>}
+              {live === false ? "Démonstration : tapez 6 chiffres." : <>Nous avons envoyé un code à 6 chiffres à <b className="ink">{email.trim().toLowerCase()}</b>, depuis wolyelec@wolyelec.com. Il est valable 10 minutes. Pensez à regarder dans les courriers indésirables.</>}
             </p>
             {demoCode && <Callout tone="info" title={`Code : ${demoCode}`}>Développement : l&apos;envoi d&apos;e-mails n&apos;est pas configuré, le code s&apos;affiche ici.</Callout>}
             <CodeInput value={code} onChange={setCode} />
-            {live && (
-              <button type="button" className="sm" style={{ color: "var(--blue)", fontWeight: 600, alignSelf: "flex-start" }} disabled={busy} onClick={async () => { setError(null); setCode(""); if (await sendCode()) setError(null); }}>
-                Renvoyer le code
-              </button>
-            )}
+            {live && <CodeTimer sentAt={sentAt} busy={busy} onResend={async () => { setError(null); setCode(""); await sendCode(); }} />}
           </>
         )}
         {step === 2 && (
