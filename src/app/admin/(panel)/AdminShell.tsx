@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { Icon } from "@/components/Icon";
 import { Logo } from "@/components/ui";
 import { BackButton } from "@/components/BackButton";
@@ -18,14 +19,38 @@ const NAV = [
   { href: "/admin/alertes", label: "Journal des alertes", icon: "bell", title: "Journal des alertes" },
   { href: "/admin/ia", label: "Assistant IA", icon: "sparkle", title: "Assistant IA · consommation Claude" },
   { href: "/admin/support", label: "Support", icon: "chat", title: "Support et réclamations" },
+  { href: "/admin/notifications", label: "Notifications", icon: "bell", title: "Notifications sur mon téléphone" },
+];
+
+// Barre du bas sur téléphone
+const TABS = [
+  { href: "/admin", label: "Accueil", icon: "home" },
+  { href: "/admin/utilisateurs", label: "Clients", icon: "users" },
+  { href: "/admin/paiement", label: "Paiements", icon: "wallet" },
+  { href: "/admin/support", label: "Support", icon: "chat" },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const current = NAV.find((n) => (n.href === "/admin" ? path === "/admin" : path.startsWith(n.href)));
   const menu = useMobileMenu();
+  const isActive = (href: string) => (href === "/admin" ? path === "/admin" : path.startsWith(href));
+
+  // Application « Woly Elec Admin » installable sur le téléphone (s'ouvre directement sur /admin)
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    const title = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]');
+    const prev = [link?.getAttribute("href"), title?.content] as const;
+    link?.setAttribute("href", "/admin.webmanifest");
+    if (title) title.content = "WE Admin";
+    return () => {
+      if (link && prev[0]) link.setAttribute("href", prev[0]);
+      if (title && prev[1]) title.content = prev[1];
+    };
+  }, []);
+
   return (
-    <div className="app">
+    <div className="app has-tabs">
       <MenuBackdrop open={menu.open} onClose={menu.close} />
       <aside id="menu-admin" className={`side${menu.open ? " open" : ""}`} style={{ background: "#0A2A20" }} aria-label="Menu d'administration">
         <div className="brand row" style={{ padding: "6px 10px 6px" }}>
@@ -56,6 +81,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="pad">{children}</div>
       </main>
+      <nav className="tabbar no-print" aria-label="Navigation rapide de l'administration">
+        {TABS.map((t) => (
+          <Link key={t.href} href={t.href} aria-current={isActive(t.href) ? "page" : undefined}>
+            <span className="tb-ic"><Icon name={t.icon} /></span>
+            {t.label}
+          </Link>
+        ))}
+        <button type="button" onClick={menu.toggle} aria-expanded={menu.open} aria-controls="menu-admin">
+          <span className="tb-ic"><Icon name="menu" /></span>
+          Menu
+        </button>
+      </nav>
     </div>
   );
 }

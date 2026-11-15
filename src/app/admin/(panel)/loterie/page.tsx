@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Callout, Switch } from "@/components/ui";
+import { Callout, NumField, Switch } from "@/components/ui";
 import { Icon } from "@/components/Icon";
 import { adminPost, SourceBadge, useAdmin } from "../useAdmin";
 
@@ -17,6 +17,8 @@ type Tirage = {
   montantMois: number | null;
   participants: number;
   statut: "tire" | "recharge" | "annule";
+  montantRecharge?: number | null;
+  moisOffert?: boolean;
   createdAt: string;
   rechargeAt: string | null;
   releves?: number;
@@ -26,6 +28,7 @@ type Data = { tirages: Tirage[]; participants: number };
 const ERR: Record<string, string> = {
   aucun_participant: "Aucun client ne remplit les conditions du tirage.",
   tirage_deja_traite: "Ce tirage a déjà été traité.",
+  montant_invalide: "Montant invalide.",
 };
 const F = (v: number | null) => (v === null ? "—" : `${v.toLocaleString("fr-FR")} F`);
 const K = (v: number | null) => (v === null ? "Pas encore de relevé" : `${Math.round(v).toLocaleString("fr-FR")} kWh / mois`);
@@ -40,6 +43,16 @@ export default function AdminLoterie() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [montant, setMontant] = useState("");
+  const [moisOffert, setMoisOffert] = useState(true);
+
+  function pick(t: Tirage) {
+    setWinner(t);
+    setMontant(t.montantMois ? String(t.montantMois) : "");
+    setMoisOffert(true);
+    setCopied(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   async function draw() {
     if (!window.confirm(`Tirer au sort un gagnant parmi ${data?.participants ?? 0} participant(s) ?`)) return;
@@ -49,19 +62,23 @@ export default function AdminLoterie() {
     const r = await adminPost<Tirage>({ type: "loterie_tirage", exclure, actifs });
     setBusy(false);
     if (!r.ok || !r.gagnant) return setMsg({ ok: false, text: ERR[r.error ?? ""] ?? "Tirage impossible." });
-    setWinner(r.gagnant);
+    pick(r.gagnant);
     void reload();
   }
 
   async function setStatus(t: Tirage, statut: "recharge" | "annule") {
+    const m = Number(montant.replace(/\s/g, "").replace(",", "."));
+    if (statut === "recharge" && !(m > 0)) return setMsg({ ok: false, text: "Indiquez le montant rechargé, en francs." });
     const q =
       statut === "recharge"
-        ? `Confirmer que le compteur ${t.numeroCompteur} a été rechargé ? ${t.nom || "Le gagnant"} recevra une alerte et une notification.`
+        ? `Confirmer la recharge de ${m.toLocaleString("fr-FR")} F sur le compteur ${t.numeroCompteur}${moisOffert ? " et le mois d'abonnement offert" : ""} ? ${t.nom || "Le gagnant"} recevra une notification, une alerte et un e-mail.`
         : "Annuler ce tirage ? Le client pourra être tiré à nouveau.";
     if (!window.confirm(q)) return;
-    const r = await adminPost({ type: "loterie_statut", id: t.id, statut });
-    setMsg(r.ok ? { ok: true, text: statut === "recharge" ? "Recharge confirmée : le gagnant a été prévenu." : "Tirage annulé." } : { ok: false, text: ERR[r.error ?? ""] ?? "Mise à jour impossible." });
-    if (winner?.id === t.id) setWinner({ ...winner, statut });
+    setBusy(true);
+    const r = await adminPost({ type: "loterie_statut", id: t.id, statut, montant: m, moisOffert });
+    setBusy(false);
+    setMsg(r.ok ? { ok: true, text: statut === "recharge" ? `Gagnant prévenu : recharge de ${m.toLocaleString("fr-FR")} F${moisOffert ? " + 1 mois d'abonnement offert" : ""}.` : "Tirage annulé." } : { ok: false, text: ERR[r.error ?? ""] ?? "Mise à jour impossible." });
+    if (r.ok && winner?.id === t.id) setWinner({ ...winner, statut, montantRecharge: statut === "recharge" ? m : null, moisOffert: statut === "recharge" && moisOffert });
     void reload();
   }
 
@@ -139,12 +156,21 @@ export default function AdminLoterie() {
           {winner.consoMoisKwh === null && (
             <Callout tone="warn" title="Consommation inconnue">Ce client n&apos;a pas de relevé récent : demandez-lui sa consommation, ou relancez le tirage avec « Seulement les clients actifs ».</Callout>
           )}
-          {winner.statut === "tire" && (
-            <div className="row wrapf" style={{ gap: 10 }}>
-              <button type="button" className="btn btn-blue" onClick={() => void setStatus(winner, "recharge")}><Icon name="check" size="s" /> J&apos;ai rechargé ce compteur</button>
-              <button type="button" className="btn btn-line" onClick={() => void setStatus(winner, "annule")}>Annuler le tirage</button>
+          {winner.statut === "tire" ? (
+            <div className="col" style={{ gap: 12, background: "var(--g1)", borderRadius: 12, padding: 14 }}>
+              <b className="h4">Après avoir rechargé son compteur</b>
+              <NumField label="Montant rechargé" unit="F" value={montant} onChange={setMontant} big={false} placeholder={winner.montantMois ? String(winner.montantMois) : "15000"} hint="Ce montant est annoncé au gagnant dans sa notification." />
+              <Switch checked={moisOffert} onChange={setMoisOffert} label="Offrir aussi 1 mois d'abonnement Woly Elec" />
+              <div className="row wrapf" style={{ gap: 10 }}>
+                <button type="button" className="btn btn-blue" disabled={busy} onClick={() => void setStatus(winner, "recharge")}><Icon name="check" size="s" /> Rechargé : prévenir le gagnant</button>
+                <button type="button" className="btn btn-line" disabled={busy} onClick={() => void setStatus(winner, "annule")}>Annuler le tirage</button>
+              </div>
             </div>
-          )}
+          ) : winner.statut === "recharge" ? (
+            <Callout tone="ok" title="Gagnant prévenu">
+              Recharge {winner.montantRecharge ? `de ${winner.montantRecharge.toLocaleString("fr-FR")} F` : "faite"}{winner.moisOffert ? " et 1 mois d'abonnement offert" : ""}. Il a reçu une notification, une alerte dans l&apos;application et un e-mail.
+            </Callout>
+          ) : null}
         </div>
       )}
 
@@ -175,11 +201,11 @@ export default function AdminLoterie() {
                     <td>{t.nom || "—"}<div className="xs mut">{t.email}</div></td>
                     <td style={{ whiteSpace: "nowrap" }}>{t.numeroCompteur}<div className="xs mut">{t.nomCompteur}</div></td>
                     <td className="n">{t.consoMoisKwh === null ? "—" : `${Math.round(t.consoMoisKwh)} kWh`}</td>
-                    <td className="n">{F(t.montantMois)}</td>
+                    <td className="n">{F(t.montantRecharge ?? t.montantMois)}{t.moisOffert ? <div className="xs mut">+ 1 mois offert</div> : null}</td>
                     <td><span className={`badge ${STATUT[t.statut][1]}`}>{STATUT[t.statut][0]}</span></td>
                     <td>
                       {t.statut === "tire" && (
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => void setStatus(t, "recharge")}>Rechargé</button>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => pick(t)}>Traiter</button>
                       )}
                     </td>
                   </tr>

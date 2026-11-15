@@ -26,14 +26,14 @@ function keyToBytes(base64url: string): Uint8Array<ArrayBuffer> {
 }
 
 /** Demande l'autorisation, abonne ce téléphone et l'enregistre sur le compte. */
-export async function enablePush(): Promise<PushState> {
+export async function enablePush(base = "/api/push"): Promise<PushState> {
   const state = await pushState();
   if (state === "indisponible" || state === "iphone_installer" || state === "bloque") return state;
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return permission === "denied" ? "bloque" : "inactif";
   const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
   await navigator.serviceWorker.ready;
-  const r = await fetch("/api/push", { cache: "no-store" });
+  const r = await fetch(base, { cache: "no-store" });
   if (!r.ok) throw new Error("serveur");
   const { publicKey } = (await r.json()) as { publicKey: string };
   let sub = await reg.pushManager.getSubscription();
@@ -44,7 +44,7 @@ export async function enablePush(): Promise<PushState> {
     sub = null;
   }
   sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToBytes(publicKey) });
-  const save = await fetch("/api/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub.toJSON() }) });
+  const save = await fetch(base, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub.toJSON() }) });
   if (!save.ok) throw new Error("serveur");
   return "actif";
 }
@@ -61,6 +61,34 @@ export async function disablePush(): Promise<PushState> {
 
 export async function testPush(): Promise<number> {
   const r = await fetch("/api/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ test: true }) });
+  const j = await r.json().catch(() => ({}));
+  return r.ok ? Number(j.envoyees ?? 0) : -1;
+}
+
+// ——— Téléphone de l'administrateur ———
+
+const ADMIN = "/api/admin/push";
+
+/** Ce téléphone reçoit-il les notifications de l'administration ? */
+export async function adminPushState(): Promise<{ state: PushState; appareils: number }> {
+  const state = await pushState();
+  let endpoint = "";
+  if (state === "actif") endpoint = (await (await navigator.serviceWorker.getRegistration("/"))?.pushManager.getSubscription())?.endpoint ?? "";
+  const r = await fetch(`${ADMIN}${endpoint ? `?endpoint=${encodeURIComponent(endpoint)}` : ""}`, { cache: "no-store" }).catch(() => null);
+  const j = r?.ok ? ((await r.json()) as { appareils: number; inscrit: boolean }) : { appareils: 0, inscrit: false };
+  return { state: state === "actif" && !j.inscrit ? "inactif" : state, appareils: j.appareils };
+}
+
+export const enableAdminPush = () => enablePush(ADMIN);
+
+/** Retire ce téléphone des notifications de l'administration (l'abonnement du navigateur reste pour l'espace client). */
+export async function disableAdminPush() {
+  const sub = await (await navigator.serviceWorker.getRegistration("/"))?.pushManager.getSubscription();
+  if (sub) await fetch(ADMIN, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => undefined);
+}
+
+export async function testAdminPush(): Promise<number> {
+  const r = await fetch(ADMIN, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ test: true }) });
   const j = await r.json().catch(() => ({}));
   return r.ok ? Number(j.envoyees ?? 0) : -1;
 }

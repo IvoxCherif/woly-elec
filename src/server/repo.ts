@@ -12,7 +12,7 @@ import { alertMail, mailEnabled, renewalMail, sendMail } from "./mail";
 import { annualPrice, IA_QUOTA_PER_METER, monthlyPrice, PACKS, PAYMENT_METHODS, TRIAL_DAYS, type Pack } from "@/lib/pricing";
 import { computeStats } from "@/lib/stats";
 import { paymentMode } from "./saspay";
-import { sendPush } from "./push";
+import { sendAdminPush, sendPush } from "./push";
 import { TEMPLATES } from "@/lib/templates";
 
 export class ActionError extends Error {
@@ -220,7 +220,7 @@ export async function signup(db: DB, input: SignupInput, today = todayLocal()): 
   await loadActiveTariff(db);
   const todayIso = isoDate(today);
 
-  return db.transaction(async (tx) => {
+  const newId = await db.transaction(async (tx) => {
     // Une seule période d'essai par adresse e-mail (ou compte Google) et par numéro de compteur
     const keys = [`email:${email}`, `compteur:${digits}`, ...(id.kind === "google" ? [`google:${id.sub}`] : [])];
     const used = await tx.select().from(t.essais).where(inArray(t.essais.cle, keys));
@@ -294,6 +294,14 @@ export async function signup(db: DB, input: SignupInput, today = todayLocal()): 
     });
     return c.id;
   });
+  const [sub] = await db.select({ statut: t.abonnements.statut }).from(t.abonnements).where(eq(t.abonnements.clientId, newId));
+  await sendAdminPush(db, "inscription", {
+    title: "Nouvel utilisateur",
+    body: `${str(input.name || (id.kind === "google" ? id.name : ""), 80) || email} · ${email} · compteur ${number}${sub?.statut === "essai" ? " · essai gratuit" : " · sans essai (compteur déjà essayé)"}`,
+    url: "/admin/utilisateurs",
+    tag: "inscription",
+  });
+  return newId;
 }
 
 // ——— Alertes automatiques après un relevé (seuils 5, 3, 1 jour, moins d'un jour) ———
@@ -420,6 +428,14 @@ export async function settlePayment(db: DB, paymentId: string, outcome: "confirm
     const message = `${p.libelle} · ${p.montant.toLocaleString("fr-FR")} F. Merci, votre abonnement est actif.`;
     await db.insert(t.alertes).values({ clientId: p.clientId, type: "abonnement", ton: "ok", icone: "check", titre: "Paiement reçu", message, canal: "push" });
     await sendPush(db, p.clientId, { title: "Paiement reçu", body: message, url: "/app/abonnement", tag: "paiement" });
+    const [c] = await db.select({ nom: t.clients.nom, email: t.clients.email }).from(t.clients).where(eq(t.clients.id, p.clientId));
+    const renouvellement = (await db.select({ id: t.paiements.id }).from(t.paiements).where(and(eq(t.paiements.clientId, p.clientId), eq(t.paiements.statut, "confirme")))).length > 1;
+    await sendAdminPush(db, "paiement", {
+      title: renouvellement ? "Abonnement renouvelé" : "Nouvel abonnement",
+      body: `${c?.nom || c?.email || "Client"} · ${p.libelle} · ${p.montant.toLocaleString("fr-FR")} F`,
+      url: "/admin/paiement",
+      tag: `paiement-${p.reference}`,
+    });
   }
   return true;
 }
@@ -783,6 +799,7 @@ export async function createSupportRequest(
     .insert(t.demandesSupport)
     .values({ reference, clientId: input.clientId, nom: str(input.nom, 80), email: input.email, categorie, sujet, message })
     .returning();
+  await sendAdminPush(db, "support", { title: categorie === "reclamation" ? "Nouvelle réclamation" : "Nouvelle demande de support", body: `${row.nom || row.email} · ${sujet}`, url: "/admin/support", tag: `support-${reference}` });
   return row;
 }
 
@@ -1073,17 +1090,42 @@ export async function lotteryHistory(db: DB) {
   return db.select().from(t.tirages).orderBy(desc(t.tirages.createdAt)).limit(50);
 }
 
-/** Recharge faite (le gagnant est prévenu : alerte + notification) ou tirage annulé. */
-export async function setLotteryStatus(db: DB, id: number, statut: "recharge" | "annule") {
+/**
+ * Recharge faite : le gagnant est prévenu (alerte, notification et e-mail) avec le montant rechargé ;
+ * en option, un mois d'abonnement lui est offert. Ou tirage annulé.
+ */
+export async function setLotteryStatus(db: DB, id: number, statut: "recharge" | "annule", o: { montant?: number; moisOffert?: boolean } = {}, today = todayLocal()) {
   const [row] = await db.select().from(t.tirages).where(eq(t.tirages.id, id));
   if (!row) throw new ActionError("tirage_introuvable", 404);
   if (row.statut !== "tire") throw new ActionError("tirage_deja_traite", 409);
-  await db.update(t.tirages).set({ statut, rechargeAt: statut === "recharge" ? new Date() : null }).where(eq(t.tirages.id, id));
-  if (statut === "recharge" && row.clientId) {
-    const titre = "Vous avez gagné un mois d'électricité !";
-    const montant = row.montantMois ? ` de ${row.montantMois.toLocaleString("fr-FR")} F` : "";
-    const message = `Woly Elec vous a tiré au sort : votre compteur ${row.numeroCompteur} vient d'être rechargé${montant}. Entrez les codes reçus sur votre compteur, puis faites un relevé.`;
-    await db.insert(t.alertes).values({ clientId: row.clientId, compteurId: row.compteurId, type: "loterie", ton: "ok", icone: "check", titre, message, canal: "push" });
-    await sendPush(db, row.clientId, { title: titre, body: message, url: "/app/alertes", tag: `loterie-${id}` });
+  if (statut === "annule") {
+    await db.update(t.tirages).set({ statut }).where(eq(t.tirages.id, id));
+    return;
   }
+  const montant = Math.round(num(o.montant ?? row.montantMois ?? 0, 0, 1_000_000, "montant_invalide"));
+  const moisOffert = !!o.moisOffert && !!row.clientId;
+  await db.update(t.tirages).set({ statut, montantRecharge: montant || null, moisOffert, rechargeAt: new Date() }).where(eq(t.tirages.id, id));
+  if (!row.clientId) return;
+
+  let finAbonnement: string | null = null;
+  if (moisOffert) {
+    // Le mois offert s'ajoute à la fin de l'essai ou de l'abonnement en cours, sinon il part d'aujourd'hui
+    const [sub] = await db.select().from(t.abonnements).where(eq(t.abonnements.clientId, row.clientId));
+    const todayIso = isoDate(today);
+    const end = sub?.statut === "actif" && sub.renouvellement && sub.renouvellement > todayIso ? sub.renouvellement : sub?.statut === "essai" && sub.essaiFin > todayIso ? sub.essaiFin : todayIso;
+    const until = new Date(`${end}T00:00:00`);
+    until.setMonth(until.getMonth() + 1);
+    finAbonnement = isoDate(until);
+    await db.update(t.abonnements).set({ statut: "actif", offre: sub?.offre === "simple" ? "simple" : "ia", cycle: "mensuel", renouvellement: finAbonnement, updatedAt: new Date() }).where(eq(t.abonnements.clientId, row.clientId));
+  }
+
+  const titre = "Vous avez gagné la loterie Woly Elec !";
+  const montantTxt = montant ? ` de ${montant.toLocaleString("fr-FR")} F` : "";
+  const moisTxt = finAbonnement ? ` Bonus : un mois d'abonnement Woly Elec offert, jusqu'au ${ddmmyyyy(finAbonnement)}.` : "";
+  const message = `Votre compteur ${row.numeroCompteur} a été rechargé${montantTxt}, offert par Woly Elec.${moisTxt} Entrez les codes de recharge reçus sur votre compteur, puis faites un relevé.`;
+  await db.insert(t.alertes).values({ clientId: row.clientId, compteurId: row.compteurId, type: "loterie", ton: "ok", icone: "check", titre, message, canal: "push" });
+  // Notification envoyée même si le client a coupé le canal push : il doit savoir qu'il a gagné
+  await sendPush(db, row.clientId, { title: titre, body: message, url: "/app/alertes", tag: `loterie-${id}` }, { force: true });
+  if (row.email && mailEnabled()) await sendMail({ to: row.email, ...alertMail(titre, message) }).catch(() => undefined);
+  await sendAdminPush(db, "loterie", { title: "Gagnant prévenu", body: `${row.nom || row.email} · ${montant ? `${montant.toLocaleString("fr-FR")} F` : "recharge"}${finAbonnement ? " + 1 mois offert" : ""}`, url: "/admin/loterie", tag: `loterie-${id}` });
 }

@@ -57,7 +57,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!(await isAdmin())) return json({ error: "non_autorise" }, 401);
   return withDb(async (db) => {
-    const body = await readJson<{ type: string; config?: TariffJson; version?: string; id?: string | number; texte?: string; statut?: string; vip?: boolean; exclure?: boolean; actifs?: boolean; valeur?: number | null; cle?: string; webhook?: string; actif?: boolean }>(req);
+    const body = await readJson<{ type: string; config?: TariffJson; version?: string; id?: string | number; texte?: string; statut?: string; vip?: boolean; exclure?: boolean; actifs?: boolean; montant?: number; moisOffert?: boolean; valeur?: number | null; cle?: string; webhook?: string; actif?: boolean }>(req);
     if (body?.type === "saspay") {
       try {
         await saveSaspayConfig(db, { cle: body.cle, webhook: body.webhook, actif: body.actif });
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
         return json({ ok: true, gagnant });
       }
       if (body?.type === "loterie_statut" && body.id !== undefined && (body.statut === "recharge" || body.statut === "annule")) {
-        await setLotteryStatus(db, Number(body.id), body.statut);
+        await setLotteryStatus(db, Number(body.id), body.statut, { montant: typeof body.montant === "number" ? body.montant : undefined, moisOffert: body.moisOffert === true });
         return json({ ok: true });
       }
       if (body?.type === "ia_quota" && typeof body.valeur === "number") {

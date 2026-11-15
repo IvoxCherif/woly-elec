@@ -1,0 +1,17 @@
+{
+  "name": "Woly Elec Admin",
+  "short_name": "WE Admin",
+  "description": "Administration Woly Elec : clients, abonnements, paiements, loterie.",
+  "lang": "fr",
+  "id": "/admin",
+  "start_url": "/admin",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0A2A20",
+  "theme_color": "#0A2A20",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

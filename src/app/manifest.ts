@@ -7,6 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Woly Elec",
     description: "Combien recharger, quand recharger : vos alertes Woyofal avant coupure.",
     lang: "fr",
+    id: "/app",
     start_url: "/app",
     scope: "/",
     display: "standalone",

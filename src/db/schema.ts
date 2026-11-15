@@ -279,8 +279,21 @@ export const tirages = pgTable(
     montantMois: integer("montant_mois"), // montant d'une recharge couvrant ce mois, en FCFA
     participants: integer("participants").notNull().default(0),
     statut: text("statut").notNull().default("tire"), // tire | recharge | annule
+    montantRecharge: integer("montant_recharge"), // montant réellement rechargé par l'équipe, annoncé au gagnant
+    moisOffert: boolean("mois_offert").notNull().default(false), // un mois d'abonnement offert en plus
     createdAt: createdAt(),
     rechargeAt: timestamp("recharge_at", { withTimezone: true }),
   },
   (t) => [index("tirages_date_idx").on(t.createdAt)],
 );
+
+/** Téléphones de l'administrateur abonnés aux notifications (nouveaux clients, paiements, support). */
+export const adminPushAbonnements = pgTable("admin_push_abonnements", {
+  id: serial("id").primaryKey(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  appareil: text("appareil").notNull().default(""),
+  createdAt: createdAt(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+});

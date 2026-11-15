@@ -7,9 +7,19 @@ import * as schema from "@/db/schema";
 import type { DB } from "@/db";
 import { seed } from "@/db/seed";
 
-vi.mock("web-push", () => ({ default: { generateVAPIDKeys: () => ({ publicKey: "pub", privateKey: "priv" }), sendNotification: vi.fn(async () => ({ statusCode: 201 })) } }));
+const sent: { endpoint: string; payload: string }[] = [];
+vi.mock("web-push", () => ({
+  default: {
+    generateVAPIDKeys: () => ({ publicKey: "pub", privateKey: "priv" }),
+    sendNotification: vi.fn(async (sub: { endpoint: string }, payload: string) => {
+      sent.push({ endpoint: sub.endpoint, payload });
+      return { statusCode: 201 };
+    }),
+  },
+}));
 
-const { applyAction, drawLottery, lotteryParticipants, meterNumberTaken, monthlyConsumption, setLotteryStatus, signup } = await import("./repo");
+const { saveAdminPrefs, saveAdminSubscription, savePushSubscription, vapidKeys } = await import("./push");
+const { createSupportRequest, applyAction, drawLottery, lotteryParticipants, meterNumberTaken, monthlyConsumption, setLotteryStatus, signup } = await import("./repo");
 
 let db: DB;
 const today = new Date(2026, 10, 17);
@@ -49,6 +59,26 @@ describe("numéros de compteur uniques", () => {
   });
 });
 
+describe("notifications de l'administrateur", () => {
+  it("prévient l'admin d'un nouvel utilisateur et d'une demande de support, selon ses choix", async () => {
+    await vapidKeys(db); // clés créées avant les abonnements (comme en production)
+    await saveAdminSubscription(db, { endpoint: "https://fcm.googleapis.com/fcm/send/admin-0123456789", keys: { p256dh: "BPadmin", auth: "authadmin" } });
+    sent.length = 0;
+    await client("nouveau@exemple.sn", "0145 7777 010");
+    const admin = sent.filter((x) => x.endpoint.includes("admin")).map((x) => JSON.parse(x.payload));
+    expect(admin[0]).toMatchObject({ title: "Nouvel utilisateur", url: "/admin/utilisateurs" });
+    expect(admin[0].body).toContain("nouveau@exemple.sn");
+
+    await saveAdminPrefs(db, { support: false });
+    sent.length = 0;
+    await createSupportRequest(db, { clientId: null, nom: "Awa", email: "awa@exemple.sn", categorie: "question", sujet: "Question", message: "Bonjour, une question sur mon compteur." });
+    expect(sent).toHaveLength(0);
+    await saveAdminPrefs(db, { support: true });
+    await createSupportRequest(db, { clientId: null, nom: "Awa", email: "awa@exemple.sn", categorie: "reclamation", sujet: "Problème", message: "Bonjour, un problème avec mon compteur." });
+    expect(JSON.parse(sent[0].payload).title).toBe("Nouvelle réclamation");
+  });
+});
+
 describe("loterie", () => {
   it("tire un participant, calcule sa consommation et exclut les gagnants", async () => {
     const before = await lotteryParticipants(db, {});
@@ -60,7 +90,18 @@ describe("loterie", () => {
     expect(await lotteryParticipants(db, {})).toBe(before - 1);
     expect(await lotteryParticipants(db, { exclureGagnants: false })).toBe(before);
 
-    await setLotteryStatus(db, w.id, "recharge");
+    await savePushSubscription(db, w.clientId!, { endpoint: "https://fcm.googleapis.com/fcm/send/gagnant-0123456789", keys: { p256dh: "BPg", auth: "authg" } });
+    sent.length = 0;
+    await setLotteryStatus(db, w.id, "recharge", { montant: 15000, moisOffert: true }, today);
+    const push = JSON.parse(sent.find((x) => !x.endpoint.includes("admin"))?.payload ?? "{}");
+    expect(push.title).toBe("Vous avez gagné la loterie Woly Elec !");
+    expect(push.body).toMatch(/15\s000 F/);
+    expect(push.body).toContain("un mois d'abonnement Woly Elec offert");
+    const [sub] = (await db.select().from(schema.abonnements)).filter((a) => a.clientId === w.clientId);
+    expect(sub.statut).toBe("actif");
+    expect(["2026-12-17", "2027-01-17"]).toContain(sub.renouvellement); // un mois après l'essai en cours, ou à partir d'aujourd'hui
+    const [row] = (await db.select().from(schema.tirages)).filter((x) => x.id === w.id);
+    expect(row.montantRecharge).toBe(15000);
     await expect(setLotteryStatus(db, w.id, "annule")).rejects.toThrow("tirage_deja_traite");
     const alerts = (await db.select().from(schema.alertes)).filter((a) => a.type === "loterie");
     expect(alerts).toHaveLength(1);
