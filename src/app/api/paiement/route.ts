@@ -41,6 +41,7 @@ export async function POST(req: Request) {
       });
       if (!session.id || !session.checkout_url?.startsWith("https://")) throw new SaspayError(502, "reponse_invalide");
       await attachCheckout(db, reference, session.id);
+      console.log(`[paiement] session SasPay créée : ${reference} (${order.amount} F)`);
       return json({ url: session.checkout_url, reference });
     } catch (e) {
       const p = await paymentByReference(db, reference);

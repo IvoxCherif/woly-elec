@@ -16,8 +16,12 @@ export async function POST(req: Request) {
   const db = await getDb().catch(() => null);
   if (!db) return json({ error: "indisponible" }, 503);
   const { key, webhookSecret } = await saspayConfig(db);
-  if (!key || !webhookSecret) return json({ error: "non_configure" }, 503);
+  if (!key || !webhookSecret) {
+    console.warn("[paiement] webhook reçu mais SasPay n'est pas configuré");
+    return json({ error: "non_configure" }, 503);
+  }
   if (!verifyWebhook(raw, req.headers.get("x-webhook-signature"), req.headers.get("x-webhook-timestamp"), webhookSecret)) {
+    console.warn("[paiement] webhook refusé : signature invalide ou trop ancienne");
     return json({ error: "signature_invalide" }, 401);
   }
 
@@ -27,6 +31,7 @@ export async function POST(req: Request) {
   } catch {
     return json({ error: "corps_invalide" }, 400);
   }
+  console.log(`[paiement] webhook SasPay reçu : ${event}`);
   if (event === "webhook.test") return json({ ok: true });
   if (event.startsWith("transaction.")) {
     // SasPay attend une réponse en moins de 15 s : quelques vérifications suffisent (les plus récentes d'abord)

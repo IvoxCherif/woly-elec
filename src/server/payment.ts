@@ -19,13 +19,14 @@ export async function reconcile(db: DB, key: string, p: PaymentRow): Promise<"co
   try {
     const s = await checkoutStatus(key, p.checkoutId);
     if (s.status === "PAID" && s.transaction_status === "SUCCESS") {
-      await settlePayment(db, p.id, "confirme", s.transaction_id);
+      if (await settlePayment(db, p.id, "confirme", s.transaction_id)) console.log(`[paiement] confirmé par SasPay : paiement ${p.id}`);
       return "confirme";
     }
     if (s.status === "EXPIRED" || s.status === "CANCELLED") {
-      await settlePayment(db, p.id, "annule", s.transaction_id);
+      if (await settlePayment(db, p.id, "annule", s.transaction_id)) console.log(`[paiement] abandonné (${s.status}) : paiement ${p.id}`);
       return "annule";
     }
+    console.log(`[paiement] toujours en attente chez SasPay (${s.status}/${s.transaction_status ?? "—"}) : paiement ${p.id}`);
     return "en_attente"; // paiement en cours, ou échec que le client peut réessayer sur la page SasPay
   } catch (e) {
     if (e instanceof SaspayError) console.error(`[paiement] vérification SasPay impossible : ${e.status} ${e.code}`);
