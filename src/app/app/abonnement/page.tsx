@@ -15,8 +15,19 @@ export default function Abonnement() {
   const other = sub.pack === "ia" ? "simple" : "ia";
   const renewal = sub.cycle === "annuel" ? annualPrice(sub.pack, n, sub.year + 1) : monthlyPrice(sub.pack, n);
 
+  const pending = state.pendingPayment;
+  // Paiement réel : passer d'un abonnement payé Woly Elec 1 à Woly Elec IA passe par un paiement
+  const upgradeNeedsPayment = state.paymentMode === "saspay" && sub.status === "actif" && sub.pack === "simple";
+
   return (
     <>
+      {pending && (
+        <div className="card row wrapf" style={{ gap: 12, background: "var(--blue1)", borderColor: "var(--blue)" }}>
+          <Icon name="clock" />
+          <span className="sm" style={{ flex: 1 }}><b className="ink">Paiement en cours de confirmation</b> · {pending.label} · {fcfa(pending.amount)}</span>
+          <Link className="btn btn-line btn-sm" href={`/app/abonnement/retour?ref=${encodeURIComponent(pending.reference)}`}>Vérifier</Link>
+        </div>
+      )}
       <div className="grid2">
         <div className="card col" style={{ gap: 14, padding: 24 }}>
           <div className="row">
@@ -47,9 +58,13 @@ export default function Abonnement() {
           )}
           {!sub.vip && <div className="row wrapf" style={{ gap: 10 }}>
             <Link className="btn btn-yel" href="/app/abonnement/paiement">{sub.status === "actif" ? "Renouveler ou modifier" : sub.status === "essai" ? "S'abonner" : "Me réabonner"}</Link>
-            <button type="button" className="btn btn-line" onClick={() => { changePack(other); notify(`Pack changé : ${PACKS[other].name}`); }}>
-              Passer à {PACKS[other].name}
-            </button>
+            {upgradeNeedsPayment ? (
+              <Link className="btn btn-line" href="/app/abonnement/paiement">Passer à {PACKS[other].name}</Link>
+            ) : (
+              <button type="button" className="btn btn-line" onClick={() => { changePack(other); notify(`Pack changé : ${PACKS[other].name}`); }}>
+                Passer à {PACKS[other].name}
+              </button>
+            )}
           </div>}
         </div>
         <div className="card col" style={{ gap: 14, padding: 24 }}>

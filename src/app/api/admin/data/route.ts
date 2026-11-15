@@ -1,8 +1,10 @@
 import { isAdmin } from "@/server/auth";
 import { json, readJson, withDb } from "@/server/http";
-import { ActionError, adminAlerts, adminIa, adminOverview, setClientIaQuota, setClientVip, setGlobalIaQuota, adminSupport, adminTariffs, adminTemplates, adminUsers, publishTariff, saveTemplate, setSupportStatus } from "@/server/repo";
+import { ActionError, adminAlerts, adminIa, adminPayments, adminOverview, setClientIaQuota, setClientVip, setGlobalIaQuota, adminSupport, adminTariffs, adminTemplates, adminUsers, publishTariff, saveTemplate, setSupportStatus } from "@/server/repo";
 import type { TariffJson } from "@/lib/engine";
 import { CLAUDE_MODEL, claudeKeyStatus } from "@/server/claude";
+import { paymentMode, saspayConfig, saveSaspayConfig, testKey } from "@/server/saspay";
+import { publicOrigin } from "@/server/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -25,6 +27,18 @@ export async function GET(req: Request) {
         return json(await adminTemplates(db));
       case "support":
         return json(await adminSupport(db));
+      case "paiement": {
+        const c = await saspayConfig(db);
+        return json({
+          mode: await paymentMode(db),
+          actif: c.enabled,
+          cle: c.preview,
+          cleStatut: c.key ? await testKey(c.key) : "absente",
+          webhook: !!c.webhookSecret,
+          webhookUrl: `${publicOrigin(req)}/api/paiement/webhook`,
+          paiements: await adminPayments(db),
+        });
+      }
       case "ia":
         return json({ ...(await adminIa(db)), modele: CLAUDE_MODEL, cle: await claudeKeyStatus() });
       default:
@@ -37,7 +51,15 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!(await isAdmin())) return json({ error: "non_autorise" }, 401);
   return withDb(async (db) => {
-    const body = await readJson<{ type: string; config?: TariffJson; version?: string; id?: string | number; texte?: string; statut?: string; vip?: boolean; valeur?: number | null }>(req);
+    const body = await readJson<{ type: string; config?: TariffJson; version?: string; id?: string | number; texte?: string; statut?: string; vip?: boolean; valeur?: number | null; cle?: string; webhook?: string; actif?: boolean }>(req);
+    if (body?.type === "saspay") {
+      try {
+        await saveSaspayConfig(db, { cle: body.cle, webhook: body.webhook, actif: body.actif });
+      } catch (e) {
+        return json({ error: (e as Error).message === "cle_invalide" ? "cle_invalide" : "enregistrement_impossible" }, 400);
+      }
+      return json({ ok: true });
+    }
     try {
       if (body?.type === "ia_quota" && typeof body.valeur === "number") {
         await setGlobalIaQuota(db, body.valeur);

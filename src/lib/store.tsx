@@ -16,6 +16,8 @@ export type Mode = "demo" | "server";
 
 const ERRORS: Record<string, string> = {
   abonnement_requis: "Un abonnement est nécessaire pour ajouter un compteur.",
+  paiement_requis: "Passer à Woly Elec IA demande un nouveau paiement.",
+  paiement_en_ligne: "Le paiement se fait sur la page de paiement sécurisée.",
   dernier_compteur: "Impossible de supprimer votre dernier compteur.",
   quota_atteint: "Quota IA atteint : renouvelé le 1er du mois.",
   offre_ia_requise: "L'assistant est réservé à Woly Elec IA.",

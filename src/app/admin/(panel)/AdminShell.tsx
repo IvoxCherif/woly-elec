@@ -10,6 +10,7 @@ const NAV = [
   { href: "/admin", label: "Tableau de bord", icon: "home", title: "Vue d'ensemble" },
   { href: "/admin/utilisateurs", label: "Utilisateurs", icon: "users", title: "Utilisateurs" },
   { href: "/admin/abonnements", label: "Abonnements", icon: "card", title: "Abonnements" },
+  { href: "/admin/paiement", label: "Paiement en ligne", icon: "wallet", title: "Paiement en ligne · SasPay" },
   { href: "/admin/tarifs", label: "Table de tarifs", icon: "calc", title: "Table de tarifs" },
   { href: "/admin/messages", label: "Modèles de messages", icon: "chat", title: "Modèles de messages" },
   { href: "/admin/alertes", label: "Journal des alertes", icon: "bell", title: "Journal des alertes" },

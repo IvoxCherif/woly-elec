@@ -131,7 +131,14 @@ export const paiements = pgTable("paiements", {
   libelle: text("libelle").notNull(),
   moyen: text("moyen").notNull(),
   montant: integer("montant").notNull(),
-  statut: text("statut").notNull().default("simule"), // simule | confirme | echec
+  statut: text("statut").notNull().default("simule"), // simule | en_attente | confirme | echec | annule
+  // Paiement en ligne (SasPay) : session de paiement hébergée et offre achetée, appliquée à la confirmation
+  checkoutId: text("checkout_id"),
+  transactionId: text("transaction_id"),
+  offre: text("offre"),
+  cycle: text("cycle"),
+  compteurs: integer("compteurs"),
+  confirmeAt: timestamp("confirme_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
 

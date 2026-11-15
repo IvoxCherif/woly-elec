@@ -10,6 +10,7 @@ import { normalizePhone } from "./phone";
 import { alertMail, mailEnabled, sendMail } from "./mail";
 import { annualPrice, IA_QUOTA_PER_METER, monthlyPrice, PACKS, PAYMENT_METHODS, TRIAL_DAYS, type Pack } from "@/lib/pricing";
 import { computeStats } from "@/lib/stats";
+import { paymentMode } from "./saspay";
 import { TEMPLATES } from "@/lib/templates";
 
 export class ActionError extends Error {
@@ -104,12 +105,15 @@ export async function buildState(db: DB, clientId: string, today = todayLocal())
         db.select().from(t.iaUsage).where(and(inArray(t.iaUsage.compteurId, ids), eq(t.iaUsage.mois, todayIso.slice(0, 7)))),
       ])
     : [[], [], []];
-  const [appliances, alerts, payments, chat] = await Promise.all([
+  const [appliances, alerts, allPayments, chat, payMode] = await Promise.all([
     db.select().from(t.appareils).where(eq(t.appareils.clientId, clientId)).orderBy(asc(t.appareils.createdAt)),
     db.select().from(t.alertes).where(eq(t.alertes.clientId, clientId)).orderBy(desc(t.alertes.createdAt)).limit(60),
     db.select().from(t.paiements).where(eq(t.paiements.clientId, clientId)).orderBy(desc(t.paiements.createdAt)),
     db.select().from(t.iaMessages).where(eq(t.iaMessages.clientId, clientId)).orderBy(desc(t.iaMessages.id)).limit(40),
+    paymentMode(db),
   ]);
+  const payments = allPayments.filter((p) => p.statut === "confirme" || p.statut === "simule");
+  const pending = allPayments.find((p) => p.statut === "en_attente" && p.createdAt > addDays(new Date(), -1));
 
   const iaQuota = c.quotaIa ?? (await globalIaQuota(db));
   const user: User = {
@@ -160,6 +164,8 @@ export async function buildState(db: DB, clientId: string, today = todayLocal())
     ),
     iaUsed: Object.fromEntries(usage.map((u) => [u.compteurId, u.requetes])),
     iaQuota,
+    paymentMode: payMode,
+    pendingPayment: pending ? { reference: pending.reference, amount: pending.montant, label: pending.libelle } : undefined,
     chat: chat.reverse().map((m) => ({ role: m.role === "u" ? "u" : "a", text: m.texte })),
   };
 }
@@ -321,6 +327,89 @@ async function ownedMeter(db: DB, clientId: string, meterId: string) {
   return m;
 }
 
+// ——— Abonnement : prix d'une commande et activation ———
+
+export type Order = { pack: Pack; cycle: "mensuel" | "annuel"; meters: number; amount: number; libelle: string };
+
+/** Calcule le prix côté serveur (jamais le montant envoyé par le navigateur). */
+export async function priceOrder(db: DB, clientId: string, a: { pack: unknown; cycle: unknown; meters: unknown }): Promise<Order> {
+  const pack: Pack = a.pack === "simple" ? "simple" : "ia";
+  const cycle = a.cycle === "annuel" ? "annuel" : "mensuel";
+  const [{ n }] = await db.select({ n: count() }).from(t.compteurs).where(eq(t.compteurs.clientId, clientId));
+  const meters = Math.max(Number(n), Math.round(num(a.meters, 1, 200)));
+  const [sub] = await db.select().from(t.abonnements).where(eq(t.abonnements.clientId, clientId));
+  const amount = cycle === "mensuel" ? monthlyPrice(pack, meters) : annualPrice(pack, meters, sub?.annee ?? 1);
+  return { pack, cycle, meters, amount, libelle: `${PACKS[pack].name} · ${meters} compteur${meters > 1 ? "s" : ""} · ${cycle === "mensuel" ? "1 mois" : "12 mois"}` };
+}
+
+/** Active ou prolonge l'abonnement payé : la nouvelle période part de la fin de la période en cours si elle n'est pas finie. */
+async function extendSubscription(db: DB, clientId: string, o: { pack: Pack; cycle: "mensuel" | "annuel" }, today: Date) {
+  const [sub] = await db.select().from(t.abonnements).where(eq(t.abonnements.clientId, clientId));
+  const todayIso = isoDate(today);
+  const stillRunning = sub?.statut === "actif" && sub.renouvellement && sub.renouvellement > todayIso;
+  const until = stillRunning ? new Date(`${sub.renouvellement}T00:00:00`) : new Date(today);
+  if (o.cycle === "mensuel") until.setMonth(until.getMonth() + 1);
+  else until.setFullYear(until.getFullYear() + 1);
+  // Renouvellement d'un abonnement annuel : on passe à l'année suivante (prix × 12 au lieu de × 11)
+  const annee = sub && sub.statut === "actif" && sub.cycle === "annuel" && o.cycle === "annuel" ? sub.annee + 1 : (sub?.annee ?? 1);
+  await db.update(t.abonnements).set({ offre: o.pack, statut: "actif", cycle: o.cycle, annee, renouvellement: isoDate(until), updatedAt: new Date() }).where(eq(t.abonnements.clientId, clientId));
+}
+
+/** Paiement en ligne en attente : créé avant la redirection vers la page de paiement SasPay. */
+export async function createPendingPayment(db: DB, clientId: string, o: Order) {
+  const reference = `WE-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+  await db.insert(t.paiements).values({ clientId, reference, libelle: o.libelle, moyen: "SasPay", montant: o.amount, statut: "en_attente", offre: o.pack, cycle: o.cycle, compteurs: o.meters });
+  return reference;
+}
+
+export async function attachCheckout(db: DB, reference: string, checkoutId: string) {
+  await db.update(t.paiements).set({ checkoutId }).where(eq(t.paiements.reference, reference));
+}
+
+export async function paymentByReference(db: DB, reference: string) {
+  const [p] = await db.select().from(t.paiements).where(eq(t.paiements.reference, reference));
+  return p ?? null;
+}
+
+/** Paiements en ligne encore en attente (pour la vérification déclenchée par un webhook). */
+export async function pendingPayments(db: DB, since = addDays(new Date(), -3)) {
+  return db
+    .select()
+    .from(t.paiements)
+    .where(and(eq(t.paiements.statut, "en_attente"), gte(t.paiements.createdAt, since)))
+    .orderBy(desc(t.paiements.createdAt))
+    .limit(30);
+}
+
+/**
+ * Applique le résultat confirmé par SasPay. Idempotent : seul le passage « en_attente » → « confirme »
+ * active l'abonnement, un webhook reçu deux fois ou une double vérification n'a pas d'effet.
+ */
+export async function settlePayment(db: DB, paymentId: string, outcome: "confirme" | "echec" | "annule", transactionId?: string | null, today = todayLocal()): Promise<boolean> {
+  const [p] = await db
+    .update(t.paiements)
+    .set({ statut: outcome, transactionId: transactionId ?? null, confirmeAt: outcome === "confirme" ? new Date() : null })
+    .where(and(eq(t.paiements.id, paymentId), eq(t.paiements.statut, "en_attente")))
+    .returning();
+  if (!p) return false;
+  if (outcome === "confirme") {
+    await extendSubscription(db, p.clientId, { pack: p.offre === "simple" ? "simple" : "ia", cycle: p.cycle === "annuel" ? "annuel" : "mensuel" }, today);
+    await db.insert(t.alertes).values({ clientId: p.clientId, type: "abonnement", ton: "ok", icone: "check", titre: "Paiement reçu", message: `${p.libelle} · ${p.montant.toLocaleString("fr-FR")} F. Merci, votre abonnement est actif.`, canal: "push" });
+  }
+  return true;
+}
+
+/** Paiements en ligne pour l'administration. */
+export async function adminPayments(db: DB, limit = 100) {
+  const rows = await db
+    .select({ p: t.paiements, nom: t.clients.nom, email: t.clients.email })
+    .from(t.paiements)
+    .leftJoin(t.clients, eq(t.clients.id, t.paiements.clientId))
+    .orderBy(desc(t.paiements.createdAt))
+    .limit(limit);
+  return rows.map(({ p, nom, email }) => ({ reference: p.reference, client: nom || email || "—", libelle: p.libelle, moyen: p.moyen, montant: p.montant, statut: p.statut, date: p.createdAt.toISOString() }));
+}
+
 export async function applyAction(db: DB, clientId: string, a: Action, today = todayLocal()): Promise<void> {
   const todayIso = isoDate(today);
   await loadActiveTariff(db);
@@ -450,37 +539,26 @@ export async function applyAction(db: DB, clientId: string, a: Action, today = t
       await db.delete(t.alertes).where(and(eq(t.alertes.id, a.id), eq(t.alertes.clientId, clientId)));
       return;
     case "subscribe": {
-      // Aucun agrégateur de paiement n'est encore branché : en mode « demo », le paiement est simulé et tracé comme tel.
-      if ((process.env.PAYMENT_MODE ?? "demo") !== "demo") throw new ActionError("paiement_indisponible", 503);
+      // Paiement simulé (mode démo). Avec SasPay, le paiement passe par /api/paiement puis la confirmation de SasPay.
+      const mode = await paymentMode(db);
+      if (mode === "saspay") throw new ActionError("paiement_en_ligne", 409);
+      if (mode !== "demo") throw new ActionError("paiement_indisponible", 503);
       if (!PAYMENT_METHODS.includes(a.method)) throw new ActionError("moyen_invalide");
-      const pack: Pack = a.pack === "simple" ? "simple" : "ia";
-      const [{ n }] = await db.select({ n: count() }).from(t.compteurs).where(eq(t.compteurs.clientId, clientId));
-      const meters = Math.max(Number(n), Math.round(num(a.meters, 1, 200)));
-      const [sub] = await db.select().from(t.abonnements).where(eq(t.abonnements.clientId, clientId));
-      const year = sub?.annee ?? 1;
-      const cycle = a.cycle === "annuel" ? "annuel" : "mensuel";
-      const amount = cycle === "mensuel" ? monthlyPrice(pack, meters) : annualPrice(pack, meters, year);
-      const until = new Date(today);
-      if (cycle === "mensuel") until.setMonth(until.getMonth() + 1);
-      else until.setFullYear(until.getFullYear() + 1);
+      const order = await priceOrder(db, clientId, a);
       const reference = `WE-${Date.now().toString(36).toUpperCase()}`;
-      await db.insert(t.paiements).values({
-        clientId,
-        reference,
-        libelle: `${PACKS[pack].name} · ${meters} compteur${meters > 1 ? "s" : ""} · ${cycle === "mensuel" ? "1 mois" : "12 mois"}`,
-        moyen: a.method,
-        montant: amount,
-        statut: "simule",
-      });
-      await db
-        .update(t.abonnements)
-        .set({ offre: pack, statut: "actif", cycle, renouvellement: isoDate(until), updatedAt: new Date() })
-        .where(eq(t.abonnements.clientId, clientId));
+      await db.insert(t.paiements).values({ clientId, reference, libelle: order.libelle, moyen: a.method, montant: order.amount, statut: "simule", offre: order.pack, cycle: order.cycle, compteurs: order.meters });
+      await extendSubscription(db, clientId, order, today);
       return;
     }
-    case "pack":
+    case "pack": {
+      // Avec le paiement en ligne, passer d'un abonnement payé Woly Elec 1 à Woly Elec IA demande un nouveau paiement
+      if (a.pack === "ia" && (await paymentMode(db)) === "saspay") {
+        const sub = await effectiveSub(db, clientId);
+        if (!sub.vip && sub.statut === "actif" && sub.offre === "simple") throw new ActionError("paiement_requis", 402);
+      }
       await db.update(t.abonnements).set({ offre: a.pack === "simple" ? "simple" : "ia", updatedAt: new Date() }).where(eq(t.abonnements.clientId, clientId));
       return;
+    }
     case "ia": {
       await ownedMeter(db, clientId, a.meterId);
       const sub = await effectiveSub(db, clientId);

@@ -96,6 +96,10 @@ export type State = {
   iaUsed: Record<string, number>;
   /** Questions IA autorisées par compteur et par mois (30 par défaut) */
   iaQuota?: number;
+  /** Paiement : saspay (paiement en ligne réel), demo (simulé) ou off */
+  paymentMode?: "saspay" | "demo" | "off";
+  /** Paiement en ligne lancé mais pas encore confirmé par SasPay */
+  pendingPayment?: { reference: string; amount: number; label: string };
   chat: ChatMsg[];
 };
 

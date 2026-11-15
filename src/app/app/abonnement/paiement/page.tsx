@@ -9,7 +9,9 @@ import { ddmmyyyy, fcfa, isoDate } from "@/lib/format";
 import { annualPrice, monthlyPrice, PACKS, PAYMENT_METHODS, type Cycle, type Pack, type PaymentMethod } from "@/lib/pricing";
 
 export default function Paiement() {
-  const { state, today, subscribe } = useStore();
+  const { state, today, subscribe, notify } = useStore();
+  const online = state.paymentMode === "saspay";
+  const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [pack, setPack] = useState<Pack>(state.subscription.pack);
   const [cycle, setCycle] = useState<Cycle>("annuel");
@@ -27,7 +29,27 @@ export default function Paiement() {
   const renewal = cycle === "annuel" ? annualPrice(pack, meters, 2) : monthlyPrice(pack, meters);
   const phoneOk = phone.replace(/\D/g, "").length === 9;
 
+  async function payOnline() {
+    // Paiement réel : la page sécurisée SasPay propose Wave, Orange Money, Free Money ou la carte bancaire
+    setPaying(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/paiement", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pack, cycle, meters }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && typeof j.url === "string") {
+        window.location.href = j.url;
+        return;
+      }
+      setError(j.error === "trop_de_requetes" ? "Trop de tentatives, réessayez dans un moment." : "Le paiement en ligne est momentanément indisponible. Réessayez plus tard ou écrivez à support@wolyelec.com.");
+    } catch {
+      setError("Connexion impossible. Vérifiez votre connexion internet.");
+    }
+    setPaying(false);
+  }
+
   function pay() {
+    if (online) return void payOnline();
+    if (state.paymentMode === "off") return notify("Le paiement est momentanément indisponible");
     setPaying(true);
     // Démo : en production, redirection vers l'agrégateur (Wave / Orange Money / Free Money), puis webhook de confirmation.
     setTimeout(() => {
@@ -82,6 +104,12 @@ export default function Paiement() {
             <div className="row" style={{ padding: "14px 0" }}><b className="h4">Total à payer</b><span className="sp" /><b className="big" style={{ fontSize: 30 }}>{fcfa(total)}</b></div>
             <span className="xs mut">Renouvellement : {fcfa(renewal)}{cycle === "annuel" ? "/an à partir de la 2e année" : "/mois"}.</span>
           </div>
+          {online ? (
+            <div className="card flat col" style={{ gap: 6, background: "var(--bg)" }}>
+              <span className="lab">Moyen de paiement</span>
+              <span className="sm">Wave, Orange Money, Free Money ou carte bancaire : vous choisissez sur la page de paiement sécurisée SasPay.</span>
+            </div>
+          ) : (<>
           <span className="lab">Moyen de paiement</span>
           <div className="col" style={{ gap: 10 }} role="radiogroup" aria-label="Moyen de paiement">
             {PAYMENT_METHODS.map((m) => (
@@ -91,11 +119,13 @@ export default function Paiement() {
             ))}
           </div>
           <TextField label="Numéro de téléphone" value={phone} onChange={setPhone} prefix="+221" placeholder="77 123 45 67" autoComplete="tel-national" />
+          </>)}
+          {error && <p className="sm" role="alert" style={{ color: "var(--red)" }}>{error}</p>}
           <span className="sp" />
           <div className="row" style={{ gap: 10 }}>
             <button type="button" className="btn btn-line" onClick={() => setStep(1)} disabled={step !== 2}>Retour</button>
-            <button type="button" className="btn btn-yel" style={{ flex: 1 }} onClick={pay} disabled={step !== 2 || !phoneOk || paying}>
-              {paying ? "Confirmez sur votre téléphone…" : `Payer ${fcfa(total)} avec ${method}`}
+            <button type="button" className="btn btn-yel" style={{ flex: 1 }} onClick={pay} disabled={step !== 2 || (!online && !phoneOk) || paying}>
+              {online ? (paying ? "Ouverture de la page de paiement…" : `Payer ${fcfa(total)}`) : paying ? "Confirmez sur votre téléphone…" : `Payer ${fcfa(total)} avec ${method}`}
             </button>
           </div>
         </section>
