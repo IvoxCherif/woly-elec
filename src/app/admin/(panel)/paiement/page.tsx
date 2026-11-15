@@ -50,7 +50,16 @@ export default function Paiement() {
       setWebhook("");
       setMsg({ ok: true, text: extra.actif === undefined ? "Enregistré." : extra.actif ? "Paiement en ligne activé." : "Paiement en ligne désactivé." });
       void reload();
-    } else setMsg({ ok: false, text: r.error === "cle_invalide" ? "Clé invalide : elle doit commencer par sk_live_ (ou sk_test_)." : "Enregistrement impossible." });
+    } else
+      setMsg({
+        ok: false,
+        text:
+          r.error === "cle_invalide"
+            ? "Le champ « Clé secrète API » doit contenir la clé API SasPay (elle commence par sk_live_). Le secret du webhook va dans le second champ."
+            : r.error === "webhook_invalide"
+              ? "Le champ « Secret de signature du webhook » contient une clé API (sk_…) : collez-y le secret affiché à la création du webhook."
+              : "Enregistrement impossible.",
+      });
   }
 
   if (live === false) return <Callout tone="warn" title="Base non configurée">Le paiement en ligne s&apos;active quand la base de données est branchée.</Callout>;

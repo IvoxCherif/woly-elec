@@ -54,6 +54,9 @@ describe("paiement en ligne SasPay", () => {
   it("enregistre la clé chiffrée et active le mode SasPay seulement sur demande", async () => {
     expect(await paymentMode(db)).toBe("demo");
     await expect(saveSaspayConfig(db, { cle: "pas-une-cle" })).rejects.toThrow("cle_invalide");
+    await expect(saveSaspayConfig(db, { webhook: "sk_live_AbCdEfGh12345678" })).rejects.toThrow("webhook_invalide");
+    await saveSaspayConfig(db, { cle: "sk_live_z4eYPRZq-Ab_Cd-EfGh_STY" }); // vraie forme : avec « - » et « _ »
+    expect((await saspayConfig(db)).key).toBe("sk_live_z4eYPRZq-Ab_Cd-EfGh_STY");
     await saveSaspayConfig(db, { cle: "sk_live_AbCdEfGh12345678", webhook: "whsec_abc" });
     const [row] = await db.select().from(schema.parametres);
     expect(JSON.stringify(row.valeur)).not.toContain("sk_live_AbCdEfGh12345678"); // jamais en clair en base

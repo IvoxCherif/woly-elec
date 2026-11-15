@@ -67,12 +67,17 @@ export async function saveSaspayConfig(db: DB, input: { cle?: string; webhook?: 
   const next: Stored = { ...s };
   const cle = input.cle?.trim();
   if (cle) {
-    if (!/^sk_(live|test)_[A-Za-z0-9]{8,}$/.test(cle)) throw new Error("cle_invalide");
+    // Les clés SasPay contiennent aussi « - » et « _ » (ex. sk_live_z4e…_p-lu…)
+    if (!/^sk_(live|test)_[A-Za-z0-9_-]{8,}$/.test(cle)) throw new Error("cle_invalide");
     next.cle = encrypt(cle);
     next.apercu = `${cle.slice(0, 12)}…`;
   }
   const webhook = input.webhook?.trim();
-  if (webhook) next.webhook = encrypt(webhook);
+  if (webhook) {
+    // Le secret du webhook n'est pas une clé API : on refuse une clé sk_… collée dans le mauvais champ
+    if (/^sk_(live|test)_/.test(webhook) || webhook.length < 8) throw new Error("webhook_invalide");
+    next.webhook = encrypt(webhook);
+  }
   if (typeof input.actif === "boolean") next.actif = input.actif;
   await db.insert(parametres).values({ cle: KEY, valeur: next }).onConflictDoUpdate({ target: parametres.cle, set: { valeur: next, updatedAt: new Date() } });
 }

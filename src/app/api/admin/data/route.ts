@@ -56,7 +56,8 @@ export async function POST(req: Request) {
       try {
         await saveSaspayConfig(db, { cle: body.cle, webhook: body.webhook, actif: body.actif });
       } catch (e) {
-        return json({ error: (e as Error).message === "cle_invalide" ? "cle_invalide" : "enregistrement_impossible" }, 400);
+        const m = (e as Error).message;
+        return json({ error: m === "cle_invalide" || m === "webhook_invalide" ? m : "enregistrement_impossible" }, 400);
       }
       return json({ ok: true });
     }
