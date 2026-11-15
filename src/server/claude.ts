@@ -105,28 +105,42 @@ export async function claudeKeyStatus(): Promise<KeyStatus> {
 
 // ——— Lecture d'une photo de l'écran du compteur ———
 
-export type PhotoReading = { valeur: number | null; code: "801" | "813" | "814" | null; lisible: boolean };
+export type PhotoReading = { valeur: number | null; texte: string; lisible: boolean };
 export type PhotoResult = { ok: true; reading: PhotoReading; usage: ClaudeUsage } | { ok: false; reason: "non_configure" | "refus" | "quota_api" | "erreur"; usage?: ClaudeUsage };
 
-const PHOTO_PROMPT = `Cette photo montre l'écran d'un compteur d'électricité prépayé Woyofal (Sénégal).
-Lis le nombre affiché sur l'écran (des kWh). Recopie-le exactement, avec la virgule ou le point décimal s'il y en a un ; n'invente aucun chiffre.
-Si un code est visible à l'écran (801 = crédit restant, 813 = consommation de la veille, 814 = consommation du mois), indique-le, sinon code = "aucun".
-Si l'écran est flou, coupé, éteint ou qu'aucun nombre n'est lisible avec certitude, mets lisible = false et valeur = 0.`;
+const PHOTO_PROMPT = `Image : l'écran LCD d'un compteur d'électricité prépayé Woyofal (Sénégal), recadré et passé en noir et blanc.
+L'écran affiche un nombre de kWh en chiffres à 7 segments.
+
+Recopie ce nombre caractère par caractère, de gauche à droite, exactement comme il est affiché :
+- Distingue bien les chiffres à 7 segments : 1 et 7 (barre du haut), 5 et 6 (segment en bas à gauche), 0, 8 et 9 (barre du milieu, segment en bas à gauche), 3 et 9.
+- Le séparateur décimal est un petit point (ou une virgule) en bas, entre deux chiffres : recopie-le avec un point. Ne l'oublie pas, ne l'invente pas.
+- Garde les zéros de tête tels qu'affichés. Ignore les lettres, icônes, unités (kWh), le code du menu (801, 813, 814) s'il est affiché à part, et tout texte imprimé autour de l'écran.
+- Si un segment est douteux, choisis le chiffre le plus probable seulement si tu en es sûr ; sinon mets lisible = false.
+
+Si l'écran est flou, coupé, éteint, plein de reflets, ou qu'aucun nombre n'est lisible avec certitude : lisible = false et texte = "".`;
 
 const PHOTO_SCHEMA = {
   type: "object",
   properties: {
     lisible: { type: "boolean" },
-    valeur: { type: "number" },
-    code: { type: "string", enum: ["801", "813", "814", "aucun"] },
+    texte: { type: "string" },
   },
-  required: ["lisible", "valeur", "code"],
+  required: ["lisible", "texte"],
   additionalProperties: false,
 };
 
-/** Lit le nombre affiché sur une photo de l'écran du compteur (Claude Haiku 5.5, réponse JSON imposée). */
+/** Convertit le texte recopié (« 0041.6 », « 41,6 ») en nombre ; null s'il n'est pas un nombre plausible. */
+export function parseDisplay(texte: string): number | null {
+  const t = texte.replace(",", ".").replace(/[^0-9.]/g, "");
+  if (!/^\d+(\.\d+)?$/.test(t)) return null;
+  const v = Number(t);
+  return Number.isFinite(v) && v >= 0 && v < 1_000_000 ? v : null;
+}
+
+/** Lit le nombre affiché sur l'écran du compteur (Claude Haiku 5.5, réponse JSON imposée). */
 export async function readMeterPhoto(base64: string, mediaType: "image/jpeg" | "image/png" | "image/webp"): Promise<PhotoResult> {
   if (!claudeEnabled()) return { ok: false, reason: "non_configure" };
+  const started = Date.now();
   try {
     const response = await client().messages.create({
       model: CLAUDE_MODEL,
@@ -145,10 +159,11 @@ export async function readMeterPhoto(base64: string, mediaType: "image/jpeg" | "
     const usage = usageOf(response.model, response.usage);
     if (response.stop_reason === "refusal") return { ok: false, reason: "refus", usage };
     const text = response.content.map((b) => (b.type === "text" ? b.text : "")).join("");
-    const j = JSON.parse(text) as { lisible?: boolean; valeur?: number; code?: string };
-    const valeur = j.lisible && typeof j.valeur === "number" && Number.isFinite(j.valeur) && j.valeur >= 0 && j.valeur < 1_000_000 ? j.valeur : null;
-    const code = j.code === "801" || j.code === "813" || j.code === "814" ? j.code : null;
-    return { ok: true, reading: { valeur, code, lisible: !!j.lisible && valeur !== null }, usage };
+    const j = JSON.parse(text) as { lisible?: boolean; texte?: string };
+    const texte = String(j.texte ?? "").slice(0, 20);
+    const valeur = j.lisible ? parseDisplay(texte) : null;
+    console.log(`[photo] lu « ${texte} » (${valeur === null ? "illisible" : "ok"}) en ${Date.now() - started} ms, ${usage.inputTokens} tokens`);
+    return { ok: true, reading: { valeur, texte, lisible: valeur !== null }, usage };
   } catch (error) {
     if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) return { ok: false, reason: "non_configure" };
     if (error instanceof Anthropic.RateLimitError) return { ok: false, reason: "quota_api" };

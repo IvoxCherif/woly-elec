@@ -1,21 +1,21 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Callout, Modal, NumField, Switch, TextField } from "../ui";
 import { Icon } from "../Icon";
 import { useMeterStats, useStore } from "@/lib/store";
 import { fcfa, isoDate, kwh, parseNum } from "@/lib/format";
 import { kwhForAmount } from "@/lib/engine";
 import { readPhoto, type PhotoCode } from "@/lib/photo";
+import { MeterCamera } from "./MeterCamera";
 
 /** Saisie rapide d'un relevé : codes 801, 813, 814 (maquette « Saisie rapide d'un relevé »). */
 export function ReleveModal({ open, onClose, onRecharge }: { open: boolean; onClose: () => void; onRecharge: () => void }) {
   const { meter, today, addReading, notify, mode } = useStore();
   const s = useMeterStats();
   const [reading, setReading] = useState<PhotoCode | null>(null);
-  const [photoMsg, setPhotoMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const target = useRef<PhotoCode>("801");
+  const [photoMsg, setPhotoMsg] = useState<{ ok: boolean; text: string; image?: string } | null>(null);
+  const [camera, setCamera] = useState<PhotoCode | null>(null);
   const [bal, setBal] = useState("");
   const [veille, setVeille] = useState("");
   const [mois, setMois] = useState("");
@@ -35,25 +35,22 @@ export function ReleveModal({ open, onClose, onRecharge }: { open: boolean; onCl
   const LABEL: Record<PhotoCode, string> = { "801": "le solde (801)", "813": "la veille (813)", "814": "le mois (814)" };
 
   function takePhoto(code: PhotoCode) {
-    target.current = code;
     setPhotoMsg(null);
-    fileRef.current?.click();
+    setCamera(code);
   }
 
-  async function onPhoto(file: File | undefined) {
-    if (!file) return;
-    const code = target.current;
+  // La valeur va toujours dans la case choisie par le client (bouton Photo touché)
+  async function onImage(code: PhotoCode, image: string) {
+    setCamera(null);
     setReading(code);
-    const r = await readPhoto(meter.id, file);
+    const r = await readPhoto(meter.id, image);
     setReading(null);
-    if (fileRef.current) fileRef.current.value = "";
-    if (!r.ok) return setPhotoMsg({ ok: false, text: r.error });
+    if (!r.ok) return setPhotoMsg({ ok: false, text: r.error, image });
     const a = r.answer;
-    if (!a.lisible || a.valeur === null) return setPhotoMsg({ ok: false, text: "Nombre illisible : reprenez la photo de plus près, sans reflet, ou saisissez la valeur." });
-    // Si le code est visible sur l'écran, la valeur va dans la bonne case
-    const into = a.code ?? code;
-    setters[into](fmt(a.valeur));
-    setPhotoMsg({ ok: true, text: `Lu sur la photo : ${fmt(a.valeur)} kWh pour ${LABEL[into]}. Vérifiez avant d'enregistrer.` });
+    if (!a.lisible || a.valeur === null)
+      return setPhotoMsg({ ok: false, image, text: "Chiffres illisibles : rapprochez-vous, évitez les reflets (penchez légèrement le téléphone) et gardez les chiffres dans le cadre." });
+    setters[code](fmt(a.valeur));
+    setPhotoMsg({ ok: true, image, text: `Lu : ${fmt(a.valeur)} kWh pour ${LABEL[code]}. Comparez avec l'écran du compteur avant d'enregistrer.` });
   }
 
   function save() {
@@ -71,9 +68,7 @@ export function ReleveModal({ open, onClose, onRecharge }: { open: boolean; onCl
 
   return (
     <Modal open={open} onClose={onClose} title="Nouveau relevé" subtitle={`${meter.name} · ${meter.number}`}>
-      {mode === "server" && (
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void onPhoto(e.target.files?.[0])} />
-      )}
+      {camera && <MeterCamera code={camera} onClose={() => setCamera(null)} onImage={(img) => void onImage(camera, img)} />}
       <div className="grid3f">
         {(
           [
@@ -94,9 +89,13 @@ export function ReleveModal({ open, onClose, onRecharge }: { open: boolean; onCl
         ))}
       </div>
       {photoMsg && (
-        <p className={`sm ${photoMsg.ok ? "cok" : "cr"}`} role="status" style={{ fontWeight: 600 }}>
-          {photoMsg.text}
-        </p>
+        <div className="row" style={{ gap: 12, alignItems: "flex-start" }} role="status">
+          {photoMsg.image && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photoMsg.image} alt="Zone envoyée pour la lecture" style={{ width: 110, borderRadius: 8, border: "1px solid var(--ln)", flex: "none" }} />
+          )}
+          <p className={`sm ${photoMsg.ok ? "cok" : "cr"}`} style={{ fontWeight: 600 }}>{photoMsg.text}</p>
+        </div>
       )}
       <div className="grid2" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", alignItems: "end", gap: 12 }}>
         <div className="field">
