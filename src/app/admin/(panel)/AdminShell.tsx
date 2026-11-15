@@ -41,7 +41,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     const title = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]');
     const prev = [link?.getAttribute("href"), title?.content] as const;
-    link?.setAttribute("href", "/admin.webmanifest");
+    link?.setAttribute("href", "/manifest-admin.webmanifest");
     if (title) title.content = "WE Admin";
     return () => {
       if (link && prev[0]) link.setAttribute("href", prev[0]);
