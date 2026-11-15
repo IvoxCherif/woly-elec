@@ -16,8 +16,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr">
       <head>
         {/* Écrits en dur (et non via les métadonnées différées) : le téléphone les lit au moment d'ajouter
-            l'icône sur l'écran d'accueil. Sans eux, Android affiche la première lettre du titre au lieu du logo. */}
-        <link rel="manifest" href="/manifest.webmanifest" />
+            l'icône sur l'écran d'accueil. Sans eux, Android affiche la première lettre du titre au lieu du logo.
+            Le manifeste (client ou admin) est ajouté par chaque partie du site : voir AppManifest. */}
         <link rel="icon" href="/favicon.ico" sizes="48x48" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
         <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
@@ -25,7 +25,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="application-name" content="Woly Elec" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="Woly Elec" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

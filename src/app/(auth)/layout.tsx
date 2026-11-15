@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
 import { BackButton } from "@/components/BackButton";
+import { AppManifest } from "@/components/AppManifest";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+      <AppManifest kind="client" />
       <header className="hdr">
         <div className="wrap" style={{ minHeight: 64 }}>
           <BackButton fallback="/" compact />

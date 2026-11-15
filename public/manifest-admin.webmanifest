@@ -5,7 +5,7 @@
   "lang": "fr",
   "id": "/admin",
   "start_url": "/admin",
-  "scope": "/",
+  "scope": "/admin",
   "display": "standalone",
   "background_color": "#0A2A20",
   "theme_color": "#0A2A20",

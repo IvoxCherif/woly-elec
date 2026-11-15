@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
 import { Icon } from "@/components/Icon";
 import { Logo } from "@/components/ui";
 import { BackButton } from "@/components/BackButton";
@@ -36,18 +35,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const menu = useMobileMenu();
   const isActive = (href: string) => (href === "/admin" ? path === "/admin" : path.startsWith(href));
 
-  // Application « Woly Elec Admin » installable sur le téléphone (s'ouvre directement sur /admin)
-  useEffect(() => {
-    const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-    const title = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]');
-    const prev = [link?.getAttribute("href"), title?.content] as const;
-    link?.setAttribute("href", "/manifest-admin.webmanifest");
-    if (title) title.content = "WE Admin";
-    return () => {
-      if (link && prev[0]) link.setAttribute("href", prev[0]);
-      if (title && prev[1]) title.content = prev[1];
-    };
-  }, []);
 
   return (
     <div className="app has-tabs">
