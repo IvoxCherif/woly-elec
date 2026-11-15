@@ -14,7 +14,8 @@ export default function Paiement() {
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [pack, setPack] = useState<Pack>(state.subscription.pack);
-  const [cycle, setCycle] = useState<Cycle>("annuel");
+  // Renouvellement : on reprend la période de l'abonnement en cours ; nouvel abonné : annuel (1 mois offert)
+  const [cycle, setCycle] = useState<Cycle>(state.subscription.status === "essai" ? "annuel" : state.subscription.cycle);
   const [meters, setMeters] = useState(Math.max(1, state.meters.length));
   const [method, setMethod] = useState<PaymentMethod>("Wave");
   const [phone, setPhone] = useState(state.user.phone.replace("+221 ", ""));

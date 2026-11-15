@@ -56,6 +56,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sub = state.subscription;
   const unread = state.alerts.filter((a) => !a.read).length;
   const left = trialDaysLeft(state, today);
+  // Jours restants avant la fin de l'abonnement payé (bandeau de renouvellement à 7 jours ou moins)
+  const subLeft =
+    sub.status === "actif" && !sub.vip && sub.renewsAt ? Math.round((Date.parse(`${sub.renewsAt}T00:00:00`) - new Date(today).setHours(0, 0, 0, 0)) / 86400000) : null;
+  const renewSoon = subLeft !== null && subLeft <= 7 && subLeft >= 0 && !state.pendingPayment && !path.startsWith("/app/abonnement");
 
   // essai terminé sans abonnement → écran de fin d'essai (sauf pages d'abonnement)
   useEffect(() => {
@@ -161,6 +165,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
           <div className="pad">
+            {ready && renewSoon && (
+              <div className={`alert ${subLeft! <= 1 ? "al-red" : "al-warn"} no-print`} role="status">
+                <span className="ai"><Icon name="card" size="s" /></span>
+                <div style={{ flex: 1 }}>
+                  <b>{subLeft === 0 ? "Votre abonnement se termine aujourd'hui" : subLeft === 1 ? "Votre abonnement se termine demain" : `Votre abonnement se termine dans ${subLeft} jours`}</b>
+                  Renouvelez-le pour garder vos alertes avant coupure et votre montant exact.
+                </div>
+                <Link className="btn btn-yel btn-sm" href="/app/abonnement/paiement">Renouveler</Link>
+              </div>
+            )}
             {ready && mode === "demo" && (
               <div className="alert al-info no-print" role="note">
                 <span className="ai"><Icon name="info" size="s" /></span>

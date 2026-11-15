@@ -120,3 +120,20 @@ export function supportNotifyMail(d: { reference: string; nom: string; email: st
     text: `${lines.join("\n")}\n\n${d.message}\n\n${SITE}/admin/support`,
   };
 }
+
+/** Rappel de renouvellement : avant la fin de l'essai ou de l'abonnement, puis le jour où il se termine. */
+export function renewalMail(v: { kind: "essai" | "abonnement"; days: number; endDate: string; offer: string; price: number }): Omit<Mail, "to"> {
+  const what = v.kind === "essai" ? "Votre essai gratuit" : `Votre abonnement ${v.offer}`;
+  const when = v.days <= 0 ? "est terminé" : v.days === 1 ? "se termine demain" : `se termine dans ${v.days} jours`;
+  const title = `${what} ${when}`;
+  const intro =
+    v.days <= 0
+      ? `${what} est arrivé à son terme le ${esc(v.endDate)}. Vos données sont conservées : réabonnez-vous pour retrouver vos alertes avant coupure et votre montant exact à recharger.`
+      : `${what} ${when}, le ${esc(v.endDate)}. Renouvelez-le pour continuer à recevoir vos alertes avant coupure et votre montant exact à recharger.`;
+  const price = `${v.offer} : à partir de ${v.price.toLocaleString("fr-FR")} F par mois. Paiement sécurisé par Wave, Orange Money, Free Money ou carte bancaire.`;
+  return {
+    subject: `${title} · Woly Elec`,
+    text: `${intro}\n\n${price}\n\nRenouveler : ${SITE}/app/abonnement/paiement`,
+    html: layout(title, `${p(intro)}${p(esc(price))}${button(`${SITE}/app/abonnement/paiement`, v.days <= 0 ? "Me réabonner" : "Renouveler mon abonnement")}`),
+  };
+}

@@ -5,9 +5,9 @@ import * as t from "@/db/schema";
 import type { Action } from "@/lib/actions";
 import type { AlertItem, Meter, Objective, Recharge, State, StoredReading, Usage, User } from "@/lib/demo";
 import { addDays, alertThreshold, autonomyDays, DEFAULT_TARIFF, kwhForAmount, setActiveTariff, tariffFromJson, tariffToJson, tierIndexFor, type TariffJson } from "@/lib/engine";
-import { isoDate } from "@/lib/format";
+import { ddmmyyyy, isoDate } from "@/lib/format";
 import { normalizePhone } from "./phone";
-import { alertMail, mailEnabled, sendMail } from "./mail";
+import { alertMail, mailEnabled, renewalMail, sendMail } from "./mail";
 import { annualPrice, IA_QUOTA_PER_METER, monthlyPrice, PACKS, PAYMENT_METHODS, TRIAL_DAYS, type Pack } from "@/lib/pricing";
 import { computeStats } from "@/lib/stats";
 import { paymentMode } from "./saspay";
@@ -834,4 +834,84 @@ export async function adminIa(db: DB, now = new Date()) {
     vips: Number(vips.n),
     quota,
   };
+}
+
+// ——— Rappels de renouvellement (tâche planifiée) ———
+
+const REMINDER_DAYS = { actif: [7, 3, 1], essai: [3, 1] } as const;
+
+/**
+ * Rappels avant la fin de l'essai (J-3, J-1) et de l'abonnement (J-7, J-3, J-1), puis le jour de l'expiration.
+ * Notification dans l'application + e-mail avec le lien de paiement SasPay. Idempotent (table rappels) :
+ * la tâche peut tourner toutes les heures sans jamais envoyer deux fois le même rappel. Les clients VIP sont ignorés.
+ */
+export async function renewalReminders(db: DB, today = todayLocal()): Promise<{ rappels: number; expires: number }> {
+  const todayIso = isoDate(today);
+  const horizon = isoDate(addDays(today, 7));
+
+  // 1. Abonnements et essais arrivés à terme → expirés (comme à l'ouverture de l'application)
+  const expired = await db
+    .update(t.abonnements)
+    .set({ statut: "expire", updatedAt: new Date() })
+    .where(
+      sql`(${t.abonnements.statut} = 'essai' and ${t.abonnements.essaiFin} < ${todayIso}) or (${t.abonnements.statut} = 'actif' and ${t.abonnements.renouvellement} < ${todayIso})`,
+    )
+    .returning({ id: t.abonnements.clientId });
+
+  // 2. Expirés depuis moins de 3 jours (y compris ceux expirés à l'ouverture de l'application) et échéances proches
+  const recent = isoDate(addDays(today, -3));
+  const subs = await db
+    .select()
+    .from(t.abonnements)
+    .where(
+      sql`(${t.abonnements.statut} = 'expire' and coalesce(${t.abonnements.renouvellement}, ${t.abonnements.essaiFin}) between ${recent} and ${todayIso})
+       or (${t.abonnements.statut} = 'essai' and ${t.abonnements.essaiFin} between ${todayIso} and ${horizon})
+       or (${t.abonnements.statut} = 'actif' and ${t.abonnements.renouvellement} between ${todayIso} and ${horizon})`,
+    );
+
+  const jobs: { sub: (typeof subs)[number]; kind: "essai" | "abonnement"; days: number; endDate: string; step: number }[] = [];
+  for (const s of subs) {
+    const kind = s.statut === "essai" || (s.statut === "expire" && !s.renouvellement) ? "essai" : "abonnement";
+    const endDate = kind === "essai" ? s.essaiFin : s.renouvellement!;
+    const days = Math.round((Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${todayIso}T00:00:00Z`)) / 86400000);
+    if (s.statut === "expire") {
+      jobs.push({ sub: s, kind, days: 0, endDate, step: 0 });
+      continue;
+    }
+    // Un rappel par palier : le plus proche atteint (un rappel J-7 manqué part à J-6, J-5…)
+    const steps: readonly number[] = kind === "essai" ? REMINDER_DAYS.essai : REMINDER_DAYS.actif;
+    const step = steps.filter((d) => days <= d).at(-1);
+    if (step !== undefined && days >= 1) jobs.push({ sub: s, kind, days, endDate, step });
+  }
+
+  let sent = 0;
+  for (const j of jobs) {
+    const { endDate, step } = j;
+    const [c] = await db.select().from(t.clients).where(eq(t.clients.id, j.sub.clientId));
+    if (!c || c.vip) continue;
+    // Clé unique : le même rappel n'est jamais renvoyé
+    const [fresh] = await db.insert(t.rappels).values({ cle: `${c.id}:${j.kind}:${endDate}:J${step}` }).onConflictDoNothing().returning();
+    if (!fresh) continue;
+    const pack: Pack = j.sub.offre === "simple" ? "simple" : "ia";
+    const v = { kind: j.kind, days: j.days, endDate: ddmmyyyy(endDate), offer: PACKS[pack].name, price: PACKS[pack].first };
+    const mail = renewalMail(v);
+    const title = mail.subject.replace(" · Woly Elec", "");
+    let canal = "push";
+    if (c.email && mailEnabled()) {
+      const { sent: ok } = await sendMail({ to: c.email, ...mail });
+      if (ok) canal = "email";
+    }
+    await db.insert(t.alertes).values({
+      clientId: c.id,
+      type: step === 0 ? "abonnement_expire" : `abonnement_j${step}`,
+      ton: j.days <= 1 ? "red" : "warn",
+      icone: "card",
+      titre: title,
+      message: j.days <= 0 ? "Réabonnez-vous pour retrouver vos alertes et votre montant exact. Vos données sont conservées." : `Renouvelez avant le ${ddmmyyyy(endDate)} pour garder vos alertes et votre montant exact.`,
+      canal,
+    });
+    sent++;
+  }
+  if (sent || expired.length) console.log(`[rappels] ${sent} rappel(s) envoyé(s), ${expired.length} abonnement(s) expiré(s)`);
+  return { rappels: sent, expires: expired.length };
 }

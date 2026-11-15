@@ -177,6 +177,12 @@ export const iaAppels = pgTable(
   (t) => [index("ia_appels_date_idx").on(t.createdAt), index("ia_appels_client_idx").on(t.clientId, t.createdAt)],
 );
 
+/** Rappels de renouvellement déjà envoyés (clé : client, type de rappel, date de fin) : un rappel n'est jamais envoyé deux fois. */
+export const rappels = pgTable("rappels", {
+  cle: text("cle").primaryKey(),
+  createdAt: createdAt(),
+});
+
 /** Essais déjà consommés : un seul essai par téléphone et par numéro de compteur, même après suppression du compte. */
 export const essais = pgTable("essais", {
   cle: text("cle").primaryKey(), // tel:+221… ou compteur:0145…

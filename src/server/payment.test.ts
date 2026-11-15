@@ -7,7 +7,7 @@ import path from "node:path";
 import * as schema from "@/db/schema";
 import type { DB } from "@/db";
 import { seed } from "@/db/seed";
-import { applyAction, buildState, createPendingPayment, attachCheckout, paymentByReference, priceOrder, settlePayment, signup } from "./repo";
+import { applyAction, buildState, createPendingPayment, renewalReminders, setClientVip, attachCheckout, paymentByReference, priceOrder, settlePayment, signup } from "./repo";
 import { paymentMode, saspayConfig, saveSaspayConfig, verifyWebhook } from "./saspay";
 import { reconcile } from "./payment";
 
@@ -140,5 +140,43 @@ describe("paiement en ligne SasPay", () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("réseau"); }));
     expect(await reconcile(db, "sk_live_x", (await paymentByReference(db, ref))!)).toBe("en_attente");
     expect((await paymentByReference(db, ref))!.statut).toBe("en_attente");
+  });
+  it("rappels de renouvellement : J-7, J-3, J-1 puis expiration, une seule fois chacun, jamais pour un VIP", async () => {
+    const id = await newClient("rappel@exemple.sn", "0145 5555 010");
+    const vip = await newClient("rappel-vip@exemple.sn", "0145 5555 011");
+    const order = await priceOrder(db, id, { pack: "ia", cycle: "mensuel", meters: 1 });
+    for (const c of [id, vip]) {
+      const r = await createPendingPayment(db, c, order);
+      await settlePayment(db, (await paymentByReference(db, r))!.id, "confirme", "tx", today); // actif jusqu'au 17/12/2026
+    }
+    await setClientVip(db, vip, true);
+    const titles = async (c: string) => (await db.select().from(schema.alertes)).filter((a) => a.clientId === c && a.type.startsWith("abonnement_")).map((a) => a.type);
+
+    await renewalReminders(db, new Date(2026, 11, 5)); // J-12 : rien
+    expect(await titles(id)).toEqual([]);
+    await renewalReminders(db, new Date(2026, 11, 10)); // J-7
+    await renewalReminders(db, new Date(2026, 11, 10)); // relancé la même journée : pas de doublon
+    expect(await titles(id)).toEqual(["abonnement_j7"]);
+    await renewalReminders(db, new Date(2026, 11, 15)); // J-2 : palier J-3 (rattrapé)
+    await renewalReminders(db, new Date(2026, 11, 16)); // J-1
+    await renewalReminders(db, new Date(2026, 11, 17)); // dernier jour : déjà prévenu la veille
+    expect((await titles(id)).sort()).toEqual(["abonnement_j1", "abonnement_j3", "abonnement_j7"]);
+
+    const r = await renewalReminders(db, new Date(2026, 11, 18)); // terminé
+    expect(r.expires).toBeGreaterThanOrEqual(1);
+    expect(await titles(id)).toContain("abonnement_expire");
+    expect((await buildState(db, id, new Date(2026, 11, 18)))!.subscription.status).toBe("expire");
+    await renewalReminders(db, new Date(2026, 11, 19));
+    expect((await titles(id)).filter((x) => x === "abonnement_expire")).toHaveLength(1);
+
+    expect(await titles(vip)).toEqual([]); // VIP : jamais de rappel
+    expect((await buildState(db, vip, new Date(2026, 11, 18)))!.subscription.status).toBe("actif");
+
+    // Réabonnement après expiration : actif à nouveau, nouvelle période depuis le jour du paiement
+    const r2 = await createPendingPayment(db, id, order);
+    await settlePayment(db, (await paymentByReference(db, r2))!.id, "confirme", "tx2", new Date(2026, 11, 20));
+    const s = (await buildState(db, id, new Date(2026, 11, 20)))!;
+    expect(s.subscription.status).toBe("actif");
+    expect(s.subscription.renewsAt).toBe("2027-01-20");
   });
 });
