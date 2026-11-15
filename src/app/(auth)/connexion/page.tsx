@@ -20,9 +20,13 @@ const ERR: Record<string, string> = {
   email_indisponible: "L'envoi d'e-mails est momentanément indisponible. Écrivez à support@wolyelec.com.",
   mot_de_passe_court: "Le mot de passe doit faire au moins 8 caractères.",
   email_invalide: "Adresse e-mail invalide.",
+  session_expiree: "Le délai pour saisir le code est dépassé : reconnectez-vous.",
 };
 
-type Mode = "connexion" | "oubli" | "nouveau";
+const blocked = (minutes: number) => `Trop d'erreurs : la connexion est bloquée pendant ${minutes} minute${minutes > 1 ? "s" : ""}. Réessayez ensuite, ou utilisez « Mot de passe oublié ».`;
+const triesLeft = (n?: number) => (typeof n === "number" && n > 0 && n < 5 ? ` Encore ${n} essai${n > 1 ? "s" : ""} avant un blocage de 10 minutes.` : "");
+
+type Mode = "connexion" | "oubli" | "nouveau" | "code";
 
 export default function Connexion() {
   const router = useRouter();
@@ -37,11 +41,28 @@ export default function Connexion() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [masked, setMasked] = useState("");
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     const err = q.get("erreur");
-    if (err) setError(ERR[err] ?? "Connexion impossible.");
+    if (err === "bloque") setError(blocked(Number(q.get("minutes")) || 10));
+    else if (err) setError(ERR[err] ?? "Connexion impossible.");
+    // Retour de Google pour un compte existant : saisie du code reçu par e-mail
+    if (q.get("etape") === "code") {
+      setDemoCode(q.get("demo"));
+      void fetch("/api/auth/login-code", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((j: { email: string | null }) => {
+          if (!j.email) return setError(ERR.session_expiree);
+          setMasked(j.email);
+          setSentAt(Date.now());
+          setCode("");
+          setMode("code");
+        })
+        .catch(() => undefined);
+      window.history.replaceState(null, "", "/connexion");
+    }
     if (q.get("oubli") === "1") setMode("oubli");
   }, []);
 
@@ -57,11 +78,31 @@ export default function Connexion() {
     try {
       if (mode === "connexion") {
         const r = await post("/api/auth/login", { email, password });
+        if (r.ok && r.data.etape === "code") {
+          setMasked(r.data.email);
+          setDemoCode(r.data.demoCode ?? null);
+          setSentAt(Date.now());
+          setCode("");
+          setPassword("");
+          setMode("code");
+          return;
+        }
         if (r.ok) return router.push("/app");
         if (r.status === 503 && r.data.error === "demo") return router.push("/app");
-        if (r.data.error === "bloque") setError(`Trop de tentatives. Réessayez dans ${r.data.minutes} minute${r.data.minutes > 1 ? "s" : ""}.`);
-        else setError(ERR[r.data.error] ?? "Connexion impossible.");
+        if (r.data.error === "bloque") setError(blocked(r.data.minutes));
+        else setError((ERR[r.data.error] ?? "Connexion impossible.") + triesLeft(r.data.essais));
         setPassword("");
+      } else if (mode === "code") {
+        const r = await post("/api/auth/login-code", { code });
+        if (r.ok) return router.push("/app");
+        setCode("");
+        if (r.data.error === "bloque") {
+          setMode("connexion");
+          setError(blocked(r.data.minutes));
+        } else if (r.data.error === "session_expiree") {
+          setMode("connexion");
+          setError(ERR.session_expiree);
+        } else setError((ERR[r.data.error] ?? "Vérification impossible.") + triesLeft(r.data.essais));
       } else if (mode === "oubli") {
         const r = await post("/api/auth/email-code", { email, usage: "reinitialisation" });
         if (!r.ok) return setError(ERR[r.data.error] ?? "Envoi du code impossible.");
@@ -95,15 +136,21 @@ export default function Connexion() {
     <div className="center col" style={{ gap: 14, maxWidth: 460 }}>
       <form className="card col" style={{ gap: 16, padding: 28 }} onSubmit={submit}>
         <div className="col" style={{ gap: 6 }}>
-          <span className="eyebrow">{mode === "connexion" ? "Connexion" : "Mot de passe oublié"}</span>
-          <h1 className="h2" style={{ fontSize: 30 }}>{mode === "connexion" ? "Content de vous revoir" : mode === "oubli" ? "Recevoir un code" : "Nouveau mot de passe"}</h1>
+          <span className="eyebrow">{mode === "connexion" ? "Connexion" : mode === "code" ? "Connexion · étape 2 sur 2" : "Mot de passe oublié"}</span>
+          <h1 className="h2" style={{ fontSize: 30 }}>{mode === "connexion" ? "Content de vous revoir" : mode === "code" ? "Code de connexion" : mode === "oubli" ? "Recevoir un code" : "Nouveau mot de passe"}</h1>
           <p className="sm">
-            {mode === "connexion" ? "Connectez-vous pour suivre votre compteur." : mode === "oubli" ? "Indiquez l'adresse e-mail de votre compte : nous vous envoyons un code à 6 chiffres." : "Saisissez le code reçu par e-mail, puis choisissez un nouveau mot de passe."}
+            {mode === "connexion"
+              ? "Connectez-vous pour suivre votre compteur."
+              : mode === "code"
+                ? `Pour protéger votre compte, saisissez le code à 6 chiffres envoyé à ${masked || "votre adresse e-mail"} (valable 10 minutes). Pensez aux courriers indésirables.`
+                : mode === "oubli"
+                  ? "Indiquez l'adresse e-mail de votre compte : nous vous envoyons un code à 6 chiffres."
+                  : "Saisissez le code reçu par e-mail, puis choisissez un nouveau mot de passe."}
           </p>
         </div>
         {error && <Callout tone="red" title="Oups">{error}</Callout>}
         {info && mode === "nouveau" && <Callout tone="info" title="Vérifiez votre boîte mail">{info} Pensez aux courriers indésirables.</Callout>}
-        {demoCode && mode === "nouveau" && <Callout tone="info" title={`Code : ${demoCode}`}>Développement : l&apos;envoi d&apos;e-mails n&apos;est pas configuré.</Callout>}
+        {demoCode && (mode === "nouveau" || mode === "code") && <Callout tone="info" title={`Code : ${demoCode}`}>Développement : l&apos;envoi d&apos;e-mails n&apos;est pas configuré.</Callout>}
 
         {mode === "connexion" && (
           <>
@@ -111,7 +158,28 @@ export default function Connexion() {
             <OrSeparator />
           </>
         )}
-        {mode !== "nouveau" && <TextField label="Adresse e-mail" type="email" value={email} onChange={setEmail} autoComplete="email" placeholder="vous@exemple.com" />}
+        {mode === "code" && (
+          <>
+            <CodeInput value={code} onChange={setCode} />
+            <CodeTimer
+              sentAt={sentAt}
+              busy={busy}
+              onResend={async () => {
+                setError(null);
+                setCode("");
+                const r = await post("/api/auth/login-code", { renvoyer: true });
+                if (r.ok) {
+                  setSentAt(Date.now());
+                  setDemoCode(r.data.demoCode ?? null);
+                } else if (r.data.error === "session_expiree") {
+                  setMode("connexion");
+                  setError(ERR.session_expiree);
+                } else setError(r.data.error === "bloque" ? blocked(r.data.minutes) : (ERR[r.data.error] ?? "Envoi du code impossible."));
+              }}
+            />
+          </>
+        )}
+        {mode !== "nouveau" && mode !== "code" && <TextField label="Adresse e-mail" type="email" value={email} onChange={setEmail} autoComplete="email" placeholder="vous@exemple.com" />}
         {mode === "nouveau" && (
           <>
             <CodeInput value={code} onChange={setCode} />
@@ -128,7 +196,7 @@ export default function Connexion() {
             />
           </>
         )}
-        {mode !== "oubli" && (
+        {mode !== "oubli" && mode !== "code" && (
           <div className="field">
             <label htmlFor="pw">{mode === "nouveau" ? "Nouveau mot de passe (8 caractères minimum)" : "Mot de passe"}</label>
             <div className="inp">
@@ -149,9 +217,9 @@ export default function Connexion() {
         <button
           type="submit"
           className="btn btn-blue btn-blk"
-          disabled={busy || (mode === "connexion" ? !email || !password : mode === "oubli" ? !email : code.length < 6 || password.length < 8 || !password2)}
+          disabled={busy || (mode === "connexion" ? !email || !password : mode === "oubli" ? !email : mode === "code" ? code.length < 6 : code.length < 6 || password.length < 8 || !password2)}
         >
-          {busy ? "Un instant…" : mode === "connexion" ? "Se connecter" : mode === "oubli" ? "Recevoir mon code" : "Changer mon mot de passe"}
+          {busy ? "Un instant…" : mode === "connexion" ? "Se connecter" : mode === "code" ? "Valider le code" : mode === "oubli" ? "Recevoir mon code" : "Changer mon mot de passe"}
         </button>
         {mode !== "connexion" && (
           <button type="button" className="sm" style={{ color: "var(--blue)", fontWeight: 600 }} onClick={back}>

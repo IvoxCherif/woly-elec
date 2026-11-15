@@ -7,6 +7,8 @@ import type { Identity } from "./repo";
 export const CLIENT_COOKIE = "woly_session";
 export const PENDING_COOKIE = "woly_pending";
 export const OAUTH_COOKIE = "woly_oauth";
+export const TWOFA_COOKIE = "woly_2fa";
+export const DEVICE_COOKIE = "woly_dev";
 const CLIENT_TTL = 30 * 24 * 3600 * 1000; // 30 jours
 const PENDING_TTL = 30 * 60 * 1000; // 30 minutes pour finir l'inscription après Google
 
@@ -90,6 +92,41 @@ export async function takeOAuthState(): Promise<{ state: string; mode: string } 
   } catch {
     return null;
   }
+}
+
+// ——— Connexion en deux étapes : identifiants (ou Google), puis code à 6 chiffres reçu par e-mail ———
+
+export type Pending2fa = { clientId: string; email: string; via: "email" | "google" };
+
+export async function setPending2fa(p: Pending2fa) {
+  (await cookies()).set(TWOFA_COOKIE, await signValue(secretOrThrow(), "2fa", JSON.stringify(p), 10 * 60_000), { ...cookieBase, maxAge: 600 });
+}
+
+export async function pending2fa(): Promise<Pending2fa | null> {
+  const secret = clientSessionSecret();
+  if (!secret) return null;
+  const v = await verifyValue((await cookies()).get(TWOFA_COOKIE)?.value, secret, "2fa");
+  try {
+    const j = v ? JSON.parse(v) : null;
+    return j?.clientId && j.email ? (j as Pending2fa) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearPending2fa() {
+  (await cookies()).set(TWOFA_COOKIE, "", { ...cookieBase, maxAge: 0 });
+}
+
+/** Identifiant aléatoire de l'appareil (cookie d'un an) : les erreurs de connexion sont comptées par appareil. */
+export async function deviceId(): Promise<string> {
+  const c = await cookies();
+  let id = c.get(DEVICE_COOKIE)?.value;
+  if (!id || !/^[a-f0-9-]{36}$/.test(id)) {
+    id = crypto.randomUUID();
+    c.set(DEVICE_COOKIE, id, { ...cookieBase, maxAge: 365 * 24 * 3600 });
+  }
+  return id;
 }
 
 export async function isAdmin(): Promise<boolean> {

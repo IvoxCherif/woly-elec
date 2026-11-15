@@ -68,21 +68,29 @@ const p = (t: string) => `<p style="margin:0 0 14px;font-size:15px;line-height:1
 const button = (href: string, label: string) =>
   `<p style="margin:20px 0"><a href="${href}" style="display:inline-block;background:#1D4ED8;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:10px">${esc(label)}</a></p>`;
 
-export function codeMail(code: string, usage: "verification" | "reinitialisation" | "admin"): Omit<Mail, "to"> {
-  const intro =
-    usage === "verification"
-      ? "Voici votre code pour confirmer votre adresse e-mail et créer votre compte Woly Elec :"
-      : usage === "admin"
-        ? "Voici votre code pour choisir un nouveau mot de passe ADMINISTRATEUR Woly Elec :"
-        : "Voici votre code pour choisir un nouveau mot de passe Woly Elec :";
-  const subject =
-    usage === "verification" ? `${code} est votre code de vérification Woly Elec` : usage === "admin" ? `${code} : réinitialisation du mot de passe administrateur Woly Elec` : `${code} est votre code de réinitialisation Woly Elec`;
+export function codeMail(code: string, usage: "verification" | "reinitialisation" | "admin" | "connexion"): Omit<Mail, "to"> {
+  const T = {
+    verification: { intro: "Voici votre code pour confirmer votre adresse e-mail et créer votre compte Woly Elec :", subject: `${code} est votre code de vérification Woly Elec`, title: "Confirmez votre adresse e-mail" },
+    admin: { intro: "Voici votre code pour choisir un nouveau mot de passe ADMINISTRATEUR Woly Elec :", subject: `${code} : réinitialisation du mot de passe administrateur Woly Elec`, title: "Mot de passe administrateur oublié" },
+    reinitialisation: { intro: "Voici votre code pour choisir un nouveau mot de passe Woly Elec :", subject: `${code} est votre code de réinitialisation Woly Elec`, title: "Mot de passe oublié" },
+    connexion: { intro: "Voici votre code pour vous connecter à Woly Elec :", subject: `${code} est votre code de connexion Woly Elec`, title: "Code de connexion" },
+  }[usage];
+  const warn =
+    usage === "connexion"
+      ? "Ce code expire dans 10 minutes. Si vous n'essayez pas de vous connecter, quelqu'un connaît peut-être votre mot de passe : changez-le avec « Mot de passe oublié »."
+      : "Ce code expire dans 10 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet e-mail.";
   return {
-    subject,
-    html: layout(usage === "verification" ? "Confirmez votre adresse e-mail" : usage === "admin" ? "Mot de passe administrateur oublié" : "Mot de passe oublié", `${p(intro)}
+    subject: T.subject,
+    html: layout(T.title, `${p(T.intro)}
 <p style="margin:18px 0;font:800 34px Arial,sans-serif;letter-spacing:8px;color:#0B3D2E;background:#E3EEE8;border-radius:12px;padding:14px;text-align:center">${code}</p>
-${p("Ce code expire dans 10 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet e-mail.")}`),
-    text: `${intro}\n\n${code}\n\nCe code expire dans 10 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.\n\nWoly Elec — ${SUPPORT_EMAIL}`,
+${p(warn)}`),
+    text: `${T.intro}
+
+${code}
+
+${warn}
+
+Woly Elec — ${SUPPORT_EMAIL}`,
   };
 }
 
