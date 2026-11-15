@@ -54,6 +54,7 @@ export function SiteFooter() {
             <Link className="sm" href="/#fonctionnalites">Fonctionnalités</Link>
             <Link className="sm" href="/tarifs">Tarifs</Link>
             <Link className="sm" href="/#faq">FAQ</Link>
+            <Link className="sm" href="/installer">Installer l&apos;application</Link>
             <Link className="sm" href="/app">Tableau de bord</Link>
           </div>
           <div className="col" style={{ gap: 8 }}>

@@ -33,6 +33,7 @@ export default function Aide() {
           <Faq
             compact
             items={[
+              { q: "Comment installer Woly Elec sur mon téléphone et recevoir les notifications ?", a: "Sur Android : ouvrez wolyelec.com dans Chrome, menu ⋮ puis « Installer l'application ». Sur iPhone : dans Safari, bouton Partager puis « Sur l'écran d'accueil », et ouvrez Woly Elec depuis l'icône. Ensuite, dans Alertes, touchez « Activer les notifications ». Le guide complet, avec chaque étape, est sur wolyelec.com/installer." },
               { q: "Comment relever les codes 801, 813 et 814 ?", a: "Sur le clavier de votre compteur Woyofal, tapez le code (par exemple 801) puis la touche de validation. Le compteur affiche une valeur : recopiez-la dans Woly Elec. Répétez pour 813 et 814." },
               { q: "Mon lien de mise à jour a expiré", a: "Pour votre sécurité, chaque lien n'est valable que quelques jours. Connectez-vous simplement sur wolyelec.com pour mettre votre compteur à jour." },
               { q: "Woly Elec vend-il de l'électricité ?", a: "Non. Achetez votre crédit Woyofal chez votre revendeur habituel (Wave, Orange Money, Free Money, point de vente). Woly Elec vous dit combien et quand recharger, puis vous enregistrez la recharge." },

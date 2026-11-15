@@ -24,6 +24,7 @@ const NAV2 = [
   { href: "/app/abonnement", label: "Abonnement", icon: "card" },
   { href: "/app/profil", label: "Profil", icon: "user" },
   { href: "/app/support", label: "Support", icon: "chat" },
+  { href: "/app/installer", label: "Installer l'app", icon: "download" },
 ];
 
 const TITLES: Record<string, string> = {
@@ -39,6 +40,7 @@ const TITLES: Record<string, string> = {
   "/app/abonnement/paiement": "Paiement",
   "/app/profil": "Profil",
   "/app/support": "Support et réclamations",
+  "/app/installer": "Installer l'application et activer les notifications",
 };
 
 type UI = { openReleve: () => void; openRecharge: () => void };

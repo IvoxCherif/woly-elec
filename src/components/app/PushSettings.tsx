@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Icon } from "../Icon";
 import { disablePush, enablePush, pushState, testPush, type PushState } from "@/lib/push";
 import { useStore } from "@/lib/store";
@@ -55,6 +56,17 @@ export function PushSettings({ compact = false }: { compact?: boolean }) {
   }
 
   if (compact) {
+    if (s === "iphone_installer")
+      return (
+        <div className="alert al-info no-print" role="note">
+          <span className="ai"><Icon name="bell" size="s" /></span>
+          <div style={{ flex: 1 }}>
+            <b>Recevez vos alertes sur votre iPhone</b>
+            Ajoutez d&apos;abord Woly Elec sur l&apos;écran d&apos;accueil, puis activez les notifications.
+          </div>
+          <Link className="btn btn-blue btn-sm" href="/app/installer">Voir comment</Link>
+        </div>
+      );
     if (s !== "inactif") return null;
     return (
       <div className="alert al-info no-print" role="note">
@@ -64,6 +76,7 @@ export function PushSettings({ compact = false }: { compact?: boolean }) {
           Coupure proche, paiement reçu, renouvellement : une notification, même application fermée.
         </div>
         <button type="button" className="btn btn-blue btn-sm" onClick={on} disabled={busy}>Activer</button>
+        <Link className="btn btn-ghost btn-sm" href="/app/installer">Aide</Link>
       </div>
     );
   }
@@ -79,6 +92,7 @@ export function PushSettings({ compact = false }: { compact?: boolean }) {
       </div>
       <div className="row wrapf" style={{ gap: 8 }}>
         {s === "inactif" && <button type="button" className="btn btn-blue btn-sm" onClick={on} disabled={busy}><Icon name="bell" size="s" /> Activer les notifications</button>}
+        <Link className="btn btn-ghost btn-sm" href="/app/installer">Comment faire sur Android et iPhone ?</Link>
         {s === "actif" && (
           <>
             <button type="button" className="btn btn-line btn-sm" onClick={test} disabled={busy}>Envoyer un test</button>
