@@ -61,14 +61,14 @@ export function InstallGuide({ inApp = false }: { inApp?: boolean }) {
       {installed ? (
         <div className="alert al-ok" role="status">
           <span className="ai"><Icon name="check" size="s" /></span>
-          <div style={{ flex: 1 }}><b>Woly Elec est installé sur ce téléphone</b>Il ne reste qu&apos;à activer les notifications (étape 2).</div>
+          <div className="fx1"><b>Woly Elec est installé sur ce téléphone</b>Il ne reste qu&apos;à activer les notifications (étape 2).</div>
         </div>
       ) : (
         tab === "android" &&
         canInstall && (
           <div className="alert al-info" role="note">
             <span className="ai"><Icon name="download" size="s" /></span>
-            <div style={{ flex: 1 }}><b>Installation en un geste</b>Votre téléphone peut installer Woly Elec directement.</div>
+            <div className="fx1"><b>Installation en un geste</b>Votre téléphone peut installer Woly Elec directement.</div>
             <button
               type="button"
               className="btn btn-blue btn-sm"

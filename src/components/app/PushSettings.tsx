@@ -60,7 +60,7 @@ export function PushSettings({ compact = false }: { compact?: boolean }) {
       return (
         <div className="alert al-info no-print" role="note">
           <span className="ai"><Icon name="bell" size="s" /></span>
-          <div style={{ flex: 1 }}>
+          <div className="fx1">
             <b>Recevez vos alertes sur votre iPhone</b>
             Ajoutez d&apos;abord Woly Elec sur l&apos;écran d&apos;accueil, puis activez les notifications.
           </div>
@@ -71,9 +71,9 @@ export function PushSettings({ compact = false }: { compact?: boolean }) {
     return (
       <div className="alert al-info no-print" role="note">
         <span className="ai"><Icon name="bell" size="s" /></span>
-        <div style={{ flex: 1 }}>
+        <div className="fx1">
           <b>Recevez vos alertes sur ce téléphone</b>
-          Coupure proche, paiement reçu, renouvellement : une notification, même application fermée.
+          Coupure proche, paiement reçu : soyez prévenu, même application fermée.
         </div>
         <button type="button" className="btn btn-blue btn-sm" onClick={on} disabled={busy}>Activer</button>
         <Link className="btn btn-ghost btn-sm" href="/app/installer">Aide</Link>
@@ -84,7 +84,7 @@ export function PushSettings({ compact = false }: { compact?: boolean }) {
   return (
     <div className="col" style={{ gap: 10, padding: "12px 0", borderBottom: "1px solid var(--ln)" }}>
       <div className="row" style={{ gap: 10 }}>
-        <div style={{ flex: 1 }}>
+        <div className="fx1">
           <b className="ink sm">Notifications push sur ce téléphone</b>
           <div className="xs mut">{TEXT[s]}</div>
         </div>

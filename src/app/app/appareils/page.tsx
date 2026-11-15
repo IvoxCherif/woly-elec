@@ -56,7 +56,7 @@ export default function Appareils() {
               {list.map((a) => (
                 <div key={a.id}>
                   <span className="avatar y"><Icon name={iconFor(a.name)} size="s" /></span>
-                  <div style={{ flex: 1 }}>
+                  <div className="fx1">
                     <b className="ink">{a.name}</b>
                     <div className="xs mut">{num(a.watts, 0)} W · {num(a.hoursPerDay)} h/jour{a.daysPerWeek < 7 ? ` · ${a.daysPerWeek} j/sem.` : ""} · ≈ {fcfa(a.k * 30 * price)}/mois</div>
                   </div>

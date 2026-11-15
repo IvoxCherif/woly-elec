@@ -58,6 +58,8 @@ button.sw[aria-checked="true"]::after{left:23px}
 /* Toast */
 .toasts{position:fixed;right:20px;bottom:20px;z-index:60;display:flex;flex-direction:column;gap:10px}
 
+.fx1{flex:1;min-width:0}
+
 /* Grilles utilitaires */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:20px}
@@ -111,9 +113,13 @@ button.sw[aria-checked="true"]::after{left:23px}
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .grid2{gap:16px}
   .row{min-width:0}
-  .alert{flex-wrap:wrap}
-  .alert>div{min-width:0;flex:1 1 180px}
-  .alert>.btn{flex:1 1 auto}
+  /* Bandeaux : texte sur toute la largeur, boutons côte à côte en dessous */
+  .alert{flex-wrap:wrap;gap:8px 10px;padding:12px;font-size:14px}
+  .alert .ai{width:30px;height:30px}
+  .alert b{font-size:14px}
+  .alert>div{min-width:0;flex:1 1 calc(100% - 44px)}
+  .alert>.btn{flex:1 1 0;min-height:42px;margin-left:40px}
+  .alert>.btn~.btn{margin-left:0}
   .tbl{font-size:14px}.tbl td,.tbl th{padding:10px}
   .scr{-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
   .modal{padding:20px;border-radius:18px;max-height:calc(100dvh - 24px)}

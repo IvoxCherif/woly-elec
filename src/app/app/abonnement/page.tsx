@@ -73,13 +73,13 @@ export default function Abonnement() {
             {state.meters.map((m, i) => (
               <div key={m.id}>
                 <span className="avatar"><Icon name="plug" size="s" /></span>
-                <div style={{ flex: 1 }}><b className="ink">{m.name}</b><div className="xs mut">{m.number} · {i === 0 ? (sub.status === "essai" ? "inclus dans l'essai" : `${fcfa(PACKS[sub.pack].first)}/mois`) : `+${fcfa(PACKS[sub.pack].extra)}/mois`}</div></div>
+                <div className="fx1"><b className="ink">{m.name}</b><div className="xs mut">{m.number} · {i === 0 ? (sub.status === "essai" ? "inclus dans l'essai" : `${fcfa(PACKS[sub.pack].first)}/mois`) : `+${fcfa(PACKS[sub.pack].extra)}/mois`}</div></div>
                 <span className="badge b-ok">Actif</span>
               </div>
             ))}
             <div>
               <span className="avatar" style={{ border: "1.5px dashed #C9D6CF", background: "#fff" }}><Icon name="plus" size="s" /></span>
-              <div style={{ flex: 1 }}><b className="ink">Ajouter un compteur</b><div className="xs mut">+{fcfa(PACKS[sub.pack].extra)}/mois avec {PACKS[sub.pack].name}{sub.status === "essai" ? " · abonnement requis" : ""}</div></div>
+              <div className="fx1"><b className="ink">Ajouter un compteur</b><div className="xs mut">+{fcfa(PACKS[sub.pack].extra)}/mois avec {PACKS[sub.pack].name}{sub.status === "essai" ? " · abonnement requis" : ""}</div></div>
               <Link className="btn btn-ghost btn-sm" href={sub.status === "actif" ? "/app/compteurs" : "/app/abonnement/paiement"}>Ajouter</Link>
             </div>
           </div>

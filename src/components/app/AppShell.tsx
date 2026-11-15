@@ -183,7 +183,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {ready && renewSoon && (
               <div className={`alert ${subLeft! <= 1 ? "al-red" : "al-warn"} no-print`} role="status">
                 <span className="ai"><Icon name="card" size="s" /></span>
-                <div style={{ flex: 1 }}>
+                <div className="fx1">
                   <b>{subLeft === 0 ? "Votre abonnement se termine aujourd'hui" : subLeft === 1 ? "Votre abonnement se termine demain" : `Votre abonnement se termine dans ${subLeft} jours`}</b>
                   Renouvelez-le pour garder vos alertes avant coupure et votre montant exact.
                 </div>
@@ -193,7 +193,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {ready && mode === "demo" && (
               <div className="alert al-info no-print" role="note">
                 <span className="ai"><Icon name="info" size="s" /></span>
-                <div style={{ flex: 1 }}>
+                <div className="fx1">
                   <b>Mode démonstration</b>
                   Ces données sont fictives et restent dans ce navigateur.{" "}
                   <Link href="/inscription" style={{ fontWeight: 700 }}>Créer mon compte</Link> ou <Link href="/connexion" style={{ fontWeight: 700 }}>me connecter</Link> pour suivre mon vrai compteur.

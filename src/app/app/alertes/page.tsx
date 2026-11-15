@@ -69,7 +69,7 @@ export default function Alertes() {
             ] as const
           ).map(([k, label, hint], i) => (
             <div key={k} className="row" style={{ padding: "12px 0", borderBottom: i < 3 ? "1px solid var(--ln)" : 0 }}>
-              <div style={{ flex: 1 }}>
+              <div className="fx1">
                 <b className="ink sm">{label}</b>
                 <div className="xs mut">{hint}</div>
               </div>

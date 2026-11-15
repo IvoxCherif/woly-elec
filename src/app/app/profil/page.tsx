@@ -23,7 +23,7 @@ export default function Profil() {
       <div className="col" style={{ gap: 20 }}>
         <div className="card row" style={{ gap: 14 }}>
           <span className="avatar" style={{ width: 56, height: 56, fontSize: 20, background: "var(--g9)", color: "var(--yel)" }}>{u.initials}</span>
-          <div style={{ flex: 1 }}><b className="mont ink" style={{ fontSize: 18 }}>{u.name}</b><div className="sm mut">{u.email || "Compte de démonstration"}</div></div>
+          <div className="fx1"><b className="mont ink" style={{ fontSize: 18 }}>{u.name}</b><div className="sm mut">{u.email || "Compte de démonstration"}</div></div>
           <span className={`badge ${state.subscription.status === "essai" ? "b-trial" : "b-ok"}`}>{state.subscription.status === "essai" ? "Essai" : PACKS[state.subscription.pack].name}</span>
         </div>
         <div className="card col" style={{ gap: 14 }}>
