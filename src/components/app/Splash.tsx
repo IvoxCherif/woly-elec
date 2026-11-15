@@ -7,13 +7,13 @@ import { useEffect, useState } from "react";
  * Rendu dès le HTML du serveur (aucun écran blanc), il s'efface en fondu quand les données sont prêtes.
  * Affiché au moins 700 ms pour ne pas clignoter.
  */
-export function Splash({ ready }: { ready: boolean }) {
+export function Splash({ ready, min = 700, label = "Chargement de votre compte…" }: { ready: boolean; min?: number; label?: string }) {
   const [minDone, setMinDone] = useState(false);
   const [gone, setGone] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setMinDone(true), 700);
+    const t = setTimeout(() => setMinDone(true), min);
     return () => clearTimeout(t);
-  }, []);
+  }, [min]);
   const leaving = ready && minDone;
   useEffect(() => {
     if (!leaving) return;
@@ -31,7 +31,7 @@ export function Splash({ ready }: { ready: boolean }) {
         </div>
         <p className="splash-tag">Votre électricité, sous contrôle</p>
         <div className="splash-bar" aria-hidden="true"><span /></div>
-        <span className="splash-sr">Chargement de votre compte…</span>
+        <span className="splash-sr">{label}</span>
       </div>
     </div>
   );

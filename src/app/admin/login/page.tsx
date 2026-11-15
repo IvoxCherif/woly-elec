@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { markAdminUnlocked } from "@/lib/admin-unlock";
 import { Suspense, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { Callout, Logo, TextField } from "@/components/ui";
@@ -31,6 +32,7 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
 
   const goAdmin = () => {
+    markAdminUnlocked();
     const next = params.get("next");
     router.replace(next && next.startsWith("/admin") && !next.startsWith("//") ? next : "/admin");
     router.refresh();

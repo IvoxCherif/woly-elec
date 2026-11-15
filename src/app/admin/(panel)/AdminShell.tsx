@@ -6,6 +6,9 @@ import { Icon } from "@/components/Icon";
 import { Logo } from "@/components/ui";
 import { BackButton } from "@/components/BackButton";
 import { MenuBackdrop, MenuButton, useMobileMenu } from "@/components/MobileMenu";
+import { Splash } from "@/components/app/Splash";
+import { useEffect, useState } from "react";
+import { ADMIN_UNLOCK } from "@/lib/admin-unlock";
 
 const NAV = [
   { href: "/admin", label: "Tableau de bord", icon: "home", title: "Vue d'ensemble" },
@@ -35,9 +38,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const menu = useMobileMenu();
   const isActive = (href: string) => (href === "/admin" ? path === "/admin" : path.startsWith(href));
 
+  // À chaque ouverture de l'admin (nouvel onglet, appli relancée), les identifiants sont redemandés
+  const [unlocked, setUnlocked] = useState(false);
+  useEffect(() => {
+    let ok = false;
+    try {
+      ok = sessionStorage.getItem(ADMIN_UNLOCK) === "1";
+    } catch {
+      ok = false;
+    }
+    if (ok) return setUnlocked(true);
+    void fetch("/api/admin/logout", { method: "POST" })
+      .catch(() => undefined)
+      .finally(() => window.location.replace(`/admin/login?next=${encodeURIComponent(window.location.pathname)}`));
+  }, []);
+
 
   return (
     <div className="app has-tabs">
+      <Splash ready={unlocked} min={400} label="Ouverture de l'administration…" />
       <MenuBackdrop open={menu.open} onClose={menu.close} />
       <aside id="menu-admin" className={`side${menu.open ? " open" : ""}`} style={{ background: "#0A2A20" }} aria-label="Menu d'administration">
         <div className="brand row" style={{ padding: "6px 10px 6px" }}>
@@ -66,7 +85,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <span className="sp" />
           <span className="avatar" style={{ background: "var(--g9)", color: "var(--yel)" }}>CT</span>
         </div>
-        <div className="pad">{children}</div>
+        <div className="pad">{unlocked ? children : null}</div>
       </main>
       <nav className="tabbar no-print" aria-label="Navigation rapide de l'administration">
         {TABS.map((t) => (

@@ -6,11 +6,13 @@ export function AppManifest({ kind }: { kind: "client" | "admin" }) {
   return kind === "admin" ? (
     <>
       <link rel="manifest" href="/manifest-admin.webmanifest" />
+      <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-admin.png" />
       <meta name="apple-mobile-web-app-title" content="WE Admin" />
     </>
   ) : (
     <>
       <link rel="manifest" href="/manifest.webmanifest" />
+      <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
       <meta name="apple-mobile-web-app-title" content="Woly Elec" />
     </>
   );

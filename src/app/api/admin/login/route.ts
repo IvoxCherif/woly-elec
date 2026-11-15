@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ADMIN_COOKIE, SESSION_HOURS, createSessionToken, sessionSecret } from "@/lib/admin-session";
+import { ADMIN_COOKIE, createSessionToken, sessionSecret } from "@/lib/admin-session";
 import { verifyPassword } from "@/lib/admin-password";
 import { getDb } from "@/db";
 import { effectiveAdminHash } from "@/server/admin-password-store";
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
-    maxAge: SESSION_HOURS * 3600,
+    // Cookie de session : effacé à la fermeture du navigateur ou de l'appli (le jeton expire de toute façon)
   });
   return res;
 }
