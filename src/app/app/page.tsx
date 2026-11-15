@@ -1,5 +1,6 @@
 "use client";
 
+import { PushSettings } from "@/components/app/PushSettings";
 import Link from "next/link";
 import { useState } from "react";
 import { BarChart, Callout, Confidence, Empty, Frise, LineChart, Seg, TierBadge, TrancheBar } from "@/components/ui";
@@ -36,6 +37,7 @@ export default function Dashboard() {
 
   return (
     <>
+      <PushSettings compact />
       <div className="grid2" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,460px),1fr))" }}>
         <div className="card" style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "center", padding: 24 }}>
           <div className="col" style={{ alignItems: "center", gap: 6, flex: "none", margin: "0 auto" }}>

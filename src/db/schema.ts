@@ -177,6 +177,22 @@ export const iaAppels = pgTable(
   (t) => [index("ia_appels_date_idx").on(t.createdAt), index("ia_appels_client_idx").on(t.clientId, t.createdAt)],
 );
 
+/** Téléphones et navigateurs abonnés aux notifications push (Web Push), un client peut en avoir plusieurs. */
+export const pushAbonnements = pgTable(
+  "push_abonnements",
+  {
+    id: serial("id").primaryKey(),
+    clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    appareil: text("appareil").notNull().default(""),
+    createdAt: createdAt(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (t) => [index("push_abonnements_client_idx").on(t.clientId)],
+);
+
 /** Rappels de renouvellement déjà envoyés (clé : client, type de rappel, date de fin) : un rappel n'est jamais envoyé deux fois. */
 export const rappels = pgTable("rappels", {
   cle: text("cle").primaryKey(),

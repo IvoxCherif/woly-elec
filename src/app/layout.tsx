@@ -6,7 +6,8 @@ export const metadata: Metadata = {
   title: { default: "Woly Elec — Votre électricité, sous contrôle", template: "%s · Woly Elec" },
   description:
     "Woly Elec vous dit combien recharger, quand recharger et quand votre crédit Woyofal va s'épuiser. Service indépendant, non affilié à la Senelec.",
-  icons: { icon: "/logo-mark.png" },
+  icons: { icon: "/logo-mark.png", apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Woly Elec", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = { themeColor: "#0B3D2E", width: "device-width", initialScale: 1 };

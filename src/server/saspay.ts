@@ -1,9 +1,9 @@
 import "server-only";
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { DB } from "@/db";
 import { parametres } from "@/db/schema";
-import { clientSessionSecret } from "./secrets";
+import { seal, unseal } from "./vault";
 
 /**
  * Paiement en ligne par SasPay (https://docs.saspay.me) : page de paiement hébergée
@@ -19,32 +19,9 @@ const KEY = "saspay";
 
 type Stored = { cle?: string; webhook?: string; actif?: boolean; apercu?: string };
 
-// ——— Chiffrement des secrets en base ———
-
-function cipherKey(): Buffer {
-  const s = clientSessionSecret();
-  if (!s) throw new Error("secret_serveur_absent");
-  return createHash("sha256").update(`woly-saspay|${s}`).digest();
-}
-
-function encrypt(plain: string): string {
-  const iv = randomBytes(12);
-  const c = createCipheriv("aes-256-gcm", cipherKey(), iv);
-  const data = Buffer.concat([c.update(plain, "utf8"), c.final()]);
-  return [iv, c.getAuthTag(), data].map((b) => b.toString("base64url")).join(".");
-}
-
-function decrypt(box: string | undefined): string | null {
-  if (!box) return null;
-  try {
-    const [iv, tag, data] = box.split(".").map((x) => Buffer.from(x, "base64url"));
-    const d = createDecipheriv("aes-256-gcm", cipherKey(), iv);
-    d.setAuthTag(tag);
-    return Buffer.concat([d.update(data), d.final()]).toString("utf8");
-  } catch {
-    return null; // secret serveur changé : il faut ressaisir la clé
-  }
-}
+// Secrets chiffrés en base (même dérivation de clé qu'avant : usage « saspay »)
+const encrypt = (plain: string) => seal("saspay", plain);
+const decrypt = (box: string | undefined) => unseal("saspay", box);
 
 async function readStored(db: DB): Promise<Stored> {
   const [row] = await db.select().from(parametres).where(eq(parametres.cle, KEY));

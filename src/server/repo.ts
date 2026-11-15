@@ -11,6 +11,7 @@ import { alertMail, mailEnabled, renewalMail, sendMail } from "./mail";
 import { annualPrice, IA_QUOTA_PER_METER, monthlyPrice, PACKS, PAYMENT_METHODS, TRIAL_DAYS, type Pack } from "@/lib/pricing";
 import { computeStats } from "@/lib/stats";
 import { paymentMode } from "./saspay";
+import { sendPush } from "./push";
 import { TEMPLATES } from "@/lib/templates";
 
 export class ActionError extends Error {
@@ -298,13 +299,16 @@ async function maybeAlert(db: DB, clientId: string, meterId: string) {
   const message = (custom?.texte ?? tpl.text).replace("{jours}", String(Math.max(1, Math.floor(days)))).replace("{lien}", "wolyelec.com/app");
   const ch = state.user.channels;
   const titre = th === 0 ? "Moins d'un jour d'électricité" : `Il vous reste environ ${th} jour${th > 1 ? "s" : ""}`;
-  // L'e-mail est le seul canal externe branché (WhatsApp et SMS : en attente d'un fournisseur)
-  let canal = th <= 1 && ch.sms ? "sms" : ch.whatsapp ? "whatsapp" : "push";
-  let statut = canal === "push" ? "remis" : "en_attente";
+  // Canaux branchés : notification push (gratuite) et e-mail. WhatsApp et SMS : en attente d'un fournisseur.
+  const pushed = ch.push ? await sendPush(db, clientId, { title: `${titre} · ${s.meter.name}`, body: message, url: "/app/plan", tag: `alerte-${meterId}` }) : 0;
+  let canal = pushed ? "push" : th <= 1 && ch.sms ? "sms" : ch.whatsapp ? "whatsapp" : "push";
+  let statut = pushed || canal === "push" ? "remis" : "en_attente";
   if (ch.email && state.user.email && mailEnabled()) {
     const { sent } = await sendMail({ to: state.user.email, ...alertMail(`${titre} sur « ${s.meter.name} »`, message) });
-    canal = "email";
-    statut = sent ? "remis" : "echec";
+    if (!pushed) {
+      canal = "email";
+      statut = sent ? "remis" : "echec";
+    }
   }
   await db.insert(t.alertes).values({
     clientId,
@@ -394,7 +398,9 @@ export async function settlePayment(db: DB, paymentId: string, outcome: "confirm
   if (!p) return false;
   if (outcome === "confirme") {
     await extendSubscription(db, p.clientId, { pack: p.offre === "simple" ? "simple" : "ia", cycle: p.cycle === "annuel" ? "annuel" : "mensuel" }, today);
-    await db.insert(t.alertes).values({ clientId: p.clientId, type: "abonnement", ton: "ok", icone: "check", titre: "Paiement reçu", message: `${p.libelle} · ${p.montant.toLocaleString("fr-FR")} F. Merci, votre abonnement est actif.`, canal: "push" });
+    const message = `${p.libelle} · ${p.montant.toLocaleString("fr-FR")} F. Merci, votre abonnement est actif.`;
+    await db.insert(t.alertes).values({ clientId: p.clientId, type: "abonnement", ton: "ok", icone: "check", titre: "Paiement reçu", message, canal: "push" });
+    await sendPush(db, p.clientId, { title: "Paiement reçu", body: message, url: "/app/abonnement", tag: "paiement" });
   }
   return true;
 }
@@ -896,10 +902,12 @@ export async function renewalReminders(db: DB, today = todayLocal()): Promise<{ 
     const v = { kind: j.kind, days: j.days, endDate: ddmmyyyy(endDate), offer: PACKS[pack].name, price: PACKS[pack].first };
     const mail = renewalMail(v);
     const title = mail.subject.replace(" · Woly Elec", "");
+    const body = j.days <= 0 ? "Réabonnez-vous pour retrouver vos alertes et votre montant exact." : `Renouvelez avant le ${ddmmyyyy(endDate)} pour garder vos alertes et votre montant exact.`;
+    const pushed = await sendPush(db, c.id, { title, body, url: "/app/abonnement/paiement", tag: "renouvellement" });
     let canal = "push";
     if (c.email && mailEnabled()) {
       const { sent: ok } = await sendMail({ to: c.email, ...mail });
-      if (ok) canal = "email";
+      if (ok && !pushed) canal = "email";
     }
     await db.insert(t.alertes).values({
       clientId: c.id,
@@ -914,4 +922,45 @@ export async function renewalReminders(db: DB, today = todayLocal()): Promise<{ 
   }
   if (sent || expired.length) console.log(`[rappels] ${sent} rappel(s) envoyé(s), ${expired.length} abonnement(s) expiré(s)`);
   return { rappels: sent, expires: expired.length };
+}
+
+// ——— Bilan hebdomadaire (notification push, gratuite) ———
+
+/**
+ * Chaque lundi : consommation de la semaine, autonomie estimée et montant à recharger, pour chaque compteur.
+ * Seulement pour les clients abonnés aux notifications sur au moins un appareil, une fois par semaine (table rappels).
+ */
+export async function weeklySummaries(db: DB, today = todayLocal()): Promise<number> {
+  if (today.getDay() !== 1) return 0;
+  const week = isoDate(today);
+  const targets = await db
+    .selectDistinct({ id: t.pushAbonnements.clientId })
+    .from(t.pushAbonnements)
+    .innerJoin(t.abonnements, eq(t.abonnements.clientId, t.pushAbonnements.clientId))
+    .where(inArray(t.abonnements.statut, ["essai", "actif"]));
+  let sent = 0;
+  for (const { id } of targets) {
+    const [fresh] = await db.insert(t.rappels).values({ cle: `${id}:bilan:${week}` }).onConflictDoNothing().returning();
+    if (!fresh) continue;
+    const state = await buildState(db, id, today);
+    if (!state?.meters.length) continue;
+    for (const m of state.meters.slice(0, 3)) {
+      const s = computeStats(state, m.id, today);
+      if (!s.last || !s.avg7) continue;
+      const week7 = Math.round(s.avg7 * 7);
+      const autonomy = Math.max(0, Math.floor(s.plan.autonomy));
+      const advice = s.plan.coversMonth
+        ? "Votre crédit devrait tenir jusqu'à la fin du mois."
+        : `Pour finir le mois : ${s.plan.minAmount.toLocaleString("fr-FR")} F minimum, ${s.plan.recommendedAmount.toLocaleString("fr-FR")} F conseillés.`;
+      const n = await sendPush(db, id, {
+        title: `Votre semaine · ${m.name}`,
+        body: `${week7} kWh consommés en 7 jours (${s.avg7.toFixed(1).replace(".", ",")} kWh/jour). Autonomie estimée : ${autonomy} jour${autonomy > 1 ? "s" : ""}. ${advice}`,
+        url: "/app/bilan",
+        tag: `bilan-${m.id}`,
+      });
+      if (n) sent++;
+    }
+  }
+  if (sent) console.log(`[rappels] ${sent} bilan(s) hebdomadaire(s) envoyé(s)`);
+  return sent;
 }

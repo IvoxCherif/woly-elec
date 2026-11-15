@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Callout, Empty, Switch } from "@/components/ui";
 import { Icon } from "@/components/Icon";
+import { PushSettings } from "@/components/app/PushSettings";
 import { useMeterStats, useStore } from "@/lib/store";
 import { ago, days } from "@/lib/format";
 import { alertThreshold } from "@/lib/engine";
@@ -58,6 +59,7 @@ export default function Alertes() {
       <div className="col" style={{ gap: 20 }}>
         <div className="card col" style={{ gap: 0 }}>
           <span className="lab" style={{ marginBottom: 6 }}>Canaux</span>
+          <PushSettings />
           {(
             [
               ["push", "Notifications push", "Alertes et rappels"],

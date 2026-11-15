@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { json, withDb } from "@/server/http";
-import { renewalReminders } from "@/server/repo";
+import { renewalReminders, weeklySummaries } from "@/server/repo";
 import { clientSessionSecret } from "@/server/secrets";
 
 export const runtime = "nodejs";
@@ -16,5 +16,5 @@ export async function POST(req: Request) {
   const expected = cronToken();
   const got = req.headers.get("x-woly-cron") ?? "";
   if (!expected || got.length !== expected.length || !timingSafeEqual(Buffer.from(got), Buffer.from(expected))) return json({ error: "non_autorise" }, 401);
-  return withDb(async (db) => json(await renewalReminders(db)));
+  return withDb(async (db) => json({ ...(await renewalReminders(db)), bilans: await weeklySummaries(db) }));
 }
