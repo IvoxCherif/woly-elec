@@ -4,7 +4,8 @@ import type { DB } from "@/db";
 import * as t from "@/db/schema";
 import type { Action } from "@/lib/actions";
 import type { AlertItem, Meter, Objective, Recharge, State, StoredReading, Usage, User } from "@/lib/demo";
-import { addDays, alertThreshold, autonomyDays, DEFAULT_TARIFF, kwhForAmount, setActiveTariff, tariffFromJson, tariffToJson, tierIndexFor, type TariffJson } from "@/lib/engine";
+import { randomInt } from "node:crypto";
+import { addDays, alertThreshold, amountForKwh, autonomyDays, DEFAULT_TARIFF, kwhForAmount, setActiveTariff, tariffFromJson, tariffToJson, tierIndexFor, type TariffJson } from "@/lib/engine";
 import { ddmmyyyy, isoDate } from "@/lib/format";
 import { normalizePhone } from "./phone";
 import { alertMail, mailEnabled, renewalMail, sendMail } from "./mail";
@@ -44,6 +45,23 @@ export async function loadActiveTariff(db: DB): Promise<TariffJson> {
   const json = (row?.config as TariffJson | undefined) ?? tariffToJson(DEFAULT_TARIFF);
   setActiveTariff(tariffFromJson(json));
   return json;
+}
+
+// ——— Numéro de compteur : un même compteur ne peut être enregistré qu'une fois sur Woly Elec ———
+
+/** Chiffres seuls : « 0145 6789-012 » et « 01456789012 » désignent le même compteur. */
+export const meterDigits = (numero: string) => numero.replace(/\D/g, "");
+
+/** true si un compteur portant ce numéro existe déjà (tous comptes confondus). */
+export async function meterNumberTaken(db: DB, numero: string): Promise<boolean> {
+  const digits = meterDigits(numero);
+  if (!digits) return false;
+  const [row] = await db
+    .select({ id: t.compteurs.id })
+    .from(t.compteurs)
+    .where(sql`regexp_replace(${t.compteurs.numero}, '[^0-9]', '', 'g') = ${digits}`)
+    .limit(1);
+  return !!row;
 }
 
 // ——— Assistant IA : offre effective (VIP), quota et consommation ———
@@ -190,6 +208,7 @@ export async function signup(db: DB, input: SignupInput, today = todayLocal()): 
   const number = str(input.meter?.number, 40);
   const digits = number.replace(/\D/g, "");
   if (digits.length < 8) throw new ActionError("compteur_invalide");
+  if (await meterNumberTaken(db, number)) throw new ActionError("compteur_deja_utilise", 409);
   const id = input.identity;
   const email = id.email.trim().toLowerCase();
   const [exists] = await db.select({ id: t.clients.id }).from(t.clients).where(eq(t.clients.email, email));
@@ -470,6 +489,7 @@ export async function applyAction(db: DB, clientId: string, a: Action, today = t
       if (sub.statut !== "actif") throw new ActionError("abonnement_requis", 402);
       const number = str(a.meter.number, 40);
       if (number.replace(/\D/g, "").length < 8 || !str(a.meter.name)) throw new ActionError("compteur_invalide");
+      if (await meterNumberTaken(db, number)) throw new ActionError("compteur_deja_utilise", 409);
       await db.insert(t.compteurs).values({
         clientId,
         nom: str(a.meter.name, 60),
@@ -965,4 +985,105 @@ export async function weeklySummaries(db: DB, today = todayLocal()): Promise<num
   }
   if (sent) console.log(`[rappels] ${sent} bilan(s) hebdomadaire(s) envoyé(s)`);
   return sent;
+}
+
+// ——— Loterie : un mois d'électricité offert à un client tiré au sort ———
+
+export type LotteryOptions = { exclureGagnants?: boolean; actifsSeulement?: boolean };
+
+/**
+ * Consommation d'un compteur sur un mois, d'après ses relevés des 30 derniers jours (code 813 = veille),
+ * ou à défaut le cumul du mois (code 814). Montant = une recharge couvrant ce mois (tranches, taxe, redevance).
+ */
+export async function monthlyConsumption(db: DB, compteurId: string, today = todayLocal()): Promise<{ kwh: number | null; montant: number | null; releves: number }> {
+  const [m] = await db.select().from(t.compteurs).where(eq(t.compteurs.id, compteurId));
+  if (!m) return { kwh: null, montant: null, releves: 0 };
+  const rows = await db
+    .select()
+    .from(t.releves)
+    .where(and(eq(t.releves.compteurId, compteurId), gte(t.releves.date, isoDate(addDays(today, -30)))))
+    .orderBy(desc(t.releves.date));
+  let daily = 0;
+  const veilles = rows.map((r) => r.consoVeilleKwh).filter((v) => v > 0);
+  if (veilles.length) daily = veilles.reduce((a, b) => a + b, 0) / veilles.length;
+  else if (rows[0] && rows[0].consoMoisKwh > 0) daily = rows[0].consoMoisKwh / Math.max(1, Number(rows[0].date.slice(8, 10)) - 1);
+  if (!(daily > 0)) return { kwh: null, montant: null, releves: rows.length };
+  const kwh = Math.round(daily * 30);
+  await loadActiveTariff(db);
+  const montant = Math.round(amountForKwh(kwh, { boughtMonthKwh: 0, firstRechargeOfMonth: true, phase: m.typeCompteur === "tri" ? "tri" : "mono", debt: m.retenueDette }));
+  return { kwh, montant, releves: rows.length };
+}
+
+/** Clients qui peuvent participer : au moins un compteur ; options : sans les anciens gagnants, actifs (relevé sur 30 jours). */
+async function lotteryPool(db: DB, o: LotteryOptions, today = todayLocal()) {
+  const meters = await db
+    .select({ compteurId: t.compteurs.id, clientId: t.compteurs.clientId, numero: t.compteurs.numero, nom: t.compteurs.nom })
+    .from(t.compteurs)
+    .orderBy(asc(t.compteurs.createdAt));
+  let clientIds = [...new Set(meters.map((m) => m.clientId))];
+  if (o.exclureGagnants !== false) {
+    const won = new Set((await db.select({ id: t.tirages.clientId }).from(t.tirages).where(sql`${t.tirages.statut} <> 'annule'`)).map((r) => r.id));
+    clientIds = clientIds.filter((id) => !won.has(id));
+  }
+  if (o.actifsSeulement) {
+    const since = isoDate(addDays(today, -30));
+    const rows = await db
+      .selectDistinct({ id: t.compteurs.clientId })
+      .from(t.releves)
+      .innerJoin(t.compteurs, eq(t.compteurs.id, t.releves.compteurId))
+      .where(gte(t.releves.date, since));
+    const active = new Set(rows.map((r) => r.id));
+    clientIds = clientIds.filter((id) => active.has(id));
+  }
+  return { clientIds, meters };
+}
+
+export async function lotteryParticipants(db: DB, o: LotteryOptions) {
+  return (await lotteryPool(db, o)).clientIds.length;
+}
+
+/** Tire un client au hasard (tirage cryptographique, chances égales par client) et enregistre le résultat. */
+export async function drawLottery(db: DB, o: LotteryOptions, today = todayLocal()) {
+  const { clientIds, meters } = await lotteryPool(db, o, today);
+  if (!clientIds.length) throw new ActionError("aucun_participant");
+  const winner = clientIds[randomInt(clientIds.length)];
+  const [c] = await db.select().from(t.clients).where(eq(t.clients.id, winner));
+  // Compteur principal du gagnant : le premier enregistré
+  const meter = meters.find((m) => m.clientId === winner)!;
+  const conso = await monthlyConsumption(db, meter.compteurId, today);
+  const [row] = await db
+    .insert(t.tirages)
+    .values({
+      clientId: winner,
+      compteurId: meter.compteurId,
+      nom: c?.nom ?? "",
+      email: c?.email ?? "",
+      telephone: c?.telephone ?? null,
+      numeroCompteur: meter.numero,
+      nomCompteur: meter.nom,
+      consoMoisKwh: conso.kwh,
+      montantMois: conso.montant,
+      participants: clientIds.length,
+    })
+    .returning();
+  return { ...row, releves: conso.releves };
+}
+
+export async function lotteryHistory(db: DB) {
+  return db.select().from(t.tirages).orderBy(desc(t.tirages.createdAt)).limit(50);
+}
+
+/** Recharge faite (le gagnant est prévenu : alerte + notification) ou tirage annulé. */
+export async function setLotteryStatus(db: DB, id: number, statut: "recharge" | "annule") {
+  const [row] = await db.select().from(t.tirages).where(eq(t.tirages.id, id));
+  if (!row) throw new ActionError("tirage_introuvable", 404);
+  if (row.statut !== "tire") throw new ActionError("tirage_deja_traite", 409);
+  await db.update(t.tirages).set({ statut, rechargeAt: statut === "recharge" ? new Date() : null }).where(eq(t.tirages.id, id));
+  if (statut === "recharge" && row.clientId) {
+    const titre = "Vous avez gagné un mois d'électricité !";
+    const montant = row.montantMois ? ` de ${row.montantMois.toLocaleString("fr-FR")} F` : "";
+    const message = `Woly Elec vous a tiré au sort : votre compteur ${row.numeroCompteur} vient d'être rechargé${montant}. Entrez les codes reçus sur votre compteur, puis faites un relevé.`;
+    await db.insert(t.alertes).values({ clientId: row.clientId, compteurId: row.compteurId, type: "loterie", ton: "ok", icone: "check", titre, message, canal: "push" });
+    await sendPush(db, row.clientId, { title: titre, body: message, url: "/app/alertes", tag: `loterie-${id}` });
+  }
 }

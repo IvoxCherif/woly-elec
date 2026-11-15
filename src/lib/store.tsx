@@ -28,6 +28,8 @@ const ERRORS: Record<string, string> = {
   non_connecte: "Votre session a expiré : reconnectez-vous.",
   telephone_invalide: "Numéro invalide : 9 chiffres, par exemple 77 123 45 67.",
   telephone_deja_utilise: "Ce numéro est déjà utilisé par un autre compte.",
+  compteur_deja_utilise: "Ce compteur est déjà enregistré sur Woly Elec : vérifiez le numéro.",
+  compteur_invalide: "Numéro de compteur invalide (8 chiffres au moins).",
 };
 
 type Ctx = {

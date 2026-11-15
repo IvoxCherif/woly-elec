@@ -1,16 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Callout, Modal, NumField, Switch, TextField } from "../ui";
 import { Icon } from "../Icon";
 import { useMeterStats, useStore } from "@/lib/store";
 import { fcfa, isoDate, kwh, parseNum } from "@/lib/format";
 import { kwhForAmount } from "@/lib/engine";
+import { readPhoto, type PhotoCode } from "@/lib/photo";
 
 /** Saisie rapide d'un relevé : codes 801, 813, 814 (maquette « Saisie rapide d'un relevé »). */
 export function ReleveModal({ open, onClose, onRecharge }: { open: boolean; onClose: () => void; onRecharge: () => void }) {
-  const { meter, today, addReading, notify } = useStore();
+  const { meter, today, addReading, notify, mode } = useStore();
   const s = useMeterStats();
+  const [reading, setReading] = useState<PhotoCode | null>(null);
+  const [photoMsg, setPhotoMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const target = useRef<PhotoCode>("801");
   const [bal, setBal] = useState("");
   const [veille, setVeille] = useState("");
   const [mois, setMois] = useState("");
@@ -24,6 +29,32 @@ export function ReleveModal({ open, onClose, onRecharge }: { open: boolean; onCl
   const errB = tried && !(b >= 0) ? "Saisissez le solde affiché par le code 801." : undefined;
   const errV = tried && !(v >= 0) ? "Saisissez la consommation de la veille (code 813)." : v > 0 && s.avg7 > 0 && (v < s.avg7 * 0.15 || v > s.avg7 * 3.5) ? "Cette valeur semble inhabituelle, vérifiez." : undefined;
   const errM = tried && !(m >= 0) ? "Saisissez la consommation du mois (code 814)." : s.last && m >= 0 && m < s.last.monthKwh && new Date(date).getDate() > 1 && new Date(s.last.date).getMonth() === new Date(date).getMonth() ? "Plus bas que le relevé précédent : vérifiez." : undefined;
+
+  const fmt = (v: number) => String(v).replace(".", ",");
+  const setters: Record<PhotoCode, (v: string) => void> = { "801": setBal, "813": setVeille, "814": setMois };
+  const LABEL: Record<PhotoCode, string> = { "801": "le solde (801)", "813": "la veille (813)", "814": "le mois (814)" };
+
+  function takePhoto(code: PhotoCode) {
+    target.current = code;
+    setPhotoMsg(null);
+    fileRef.current?.click();
+  }
+
+  async function onPhoto(file: File | undefined) {
+    if (!file) return;
+    const code = target.current;
+    setReading(code);
+    const r = await readPhoto(meter.id, file);
+    setReading(null);
+    if (fileRef.current) fileRef.current.value = "";
+    if (!r.ok) return setPhotoMsg({ ok: false, text: r.error });
+    const a = r.answer;
+    if (!a.lisible || a.valeur === null) return setPhotoMsg({ ok: false, text: "Nombre illisible : reprenez la photo de plus près, sans reflet, ou saisissez la valeur." });
+    // Si le code est visible sur l'écran, la valeur va dans la bonne case
+    const into = a.code ?? code;
+    setters[into](fmt(a.valeur));
+    setPhotoMsg({ ok: true, text: `Lu sur la photo : ${fmt(a.valeur)} kWh pour ${LABEL[into]}. Vérifiez avant d'enregistrer.` });
+  }
 
   function save() {
     setTried(true);
@@ -40,11 +71,33 @@ export function ReleveModal({ open, onClose, onRecharge }: { open: boolean; onCl
 
   return (
     <Modal open={open} onClose={onClose} title="Nouveau relevé" subtitle={`${meter.name} · ${meter.number}`}>
+      {mode === "server" && (
+        <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void onPhoto(e.target.files?.[0])} />
+      )}
       <div className="grid3f">
-        <NumField label="Solde · 801" unit="kWh" value={bal} onChange={setBal} error={errB} autoFocus placeholder={s.last ? String(s.last.balanceKwh).replace(".", ",") : "0"} />
-        <NumField label="Veille · 813" unit="kWh" value={veille} onChange={setVeille} error={errV} placeholder={s.last ? String(s.last.yesterdayKwh).replace(".", ",") : "0"} />
-        <NumField label="Mois · 814" unit="kWh" value={mois} onChange={setMois} error={errM} placeholder={s.last ? String(s.last.monthKwh) : "0"} />
+        {(
+          [
+            ["801", <NumField key="b" label="Solde · 801" unit="kWh" value={bal} onChange={setBal} error={errB} autoFocus placeholder={s.last ? fmt(s.last.balanceKwh) : "0"} />],
+            ["813", <NumField key="v" label="Veille · 813" unit="kWh" value={veille} onChange={setVeille} error={errV} placeholder={s.last ? fmt(s.last.yesterdayKwh) : "0"} />],
+            ["814", <NumField key="m" label="Mois · 814" unit="kWh" value={mois} onChange={setMois} error={errM} placeholder={s.last ? String(s.last.monthKwh) : "0"} />],
+          ] as [PhotoCode, React.ReactNode][]
+        ).map(([code, field]) => (
+          <div key={code} className="col" style={{ gap: 6 }}>
+            {field}
+            {mode === "server" && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => takePhoto(code)} disabled={reading !== null} aria-label={`Photographier l'écran pour ${LABEL[code]}`}>
+                <Icon name="camera" size="s" />
+                {reading === code ? "Lecture…" : "Photo"}
+              </button>
+            )}
+          </div>
+        ))}
       </div>
+      {photoMsg && (
+        <p className={`sm ${photoMsg.ok ? "cok" : "cr"}`} role="status" style={{ fontWeight: 600 }}>
+          {photoMsg.text}
+        </p>
+      )}
       <div className="grid2" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", alignItems: "end", gap: 12 }}>
         <div className="field">
           <label htmlFor="rel-date">Date du relevé</label>
@@ -57,7 +110,7 @@ export function ReleveModal({ open, onClose, onRecharge }: { open: boolean; onCl
         </div>
       </div>
       <Callout tone="info" title="Estimation d'après vos relevés">
-        Tapez le code sur le clavier du compteur et recopiez la valeur affichée. Les résultats se mettent à jour dès l&apos;enregistrement.
+        Tapez le code sur le clavier du compteur et recopiez la valeur affichée{mode === "server" ? <>, ou touchez <b>Photo</b> et photographiez l&apos;écran : le nombre est lu automatiquement</> : null}. Les résultats se mettent à jour dès l&apos;enregistrement.
       </Callout>
       <div className="row wrapf" style={{ justifyContent: "flex-end", gap: 12 }}>
         <button type="button" className="btn btn-line" onClick={onClose}>

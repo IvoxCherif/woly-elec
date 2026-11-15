@@ -56,7 +56,11 @@ describe("base de données Woly Elec", () => {
 
   it("refuse un deuxième compte ou un deuxième essai", async () => {
     await expect(signup(db, signupInput("diallo@exemple.sn", "0999 0000 001"), today)).rejects.toThrow("deja_inscrit");
-    const other = await signup(db, signupInput("autre@exemple.sn", "0145 6789 012"), today); // même compteur
+    // Même compteur, autre adresse : refusé (un compteur n'est enregistré qu'une fois)
+    await expect(signup(db, signupInput("autre@exemple.sn", "01456789012"), today)).rejects.toThrow("compteur_deja_utilise");
+    // Compteur qui a déjà eu un essai (compte supprimé depuis) : compte créé, mais sans nouvel essai
+    await db.insert(schema.essais).values({ cle: "compteur:01456789099" });
+    const other = await signup(db, signupInput("autre@exemple.sn", "0145 6789 099"), today);
     expect((await buildState(db, other, today))!.subscription.status).toBe("expire");
   });
 

@@ -57,6 +57,13 @@
       "when": 1794740463944,
       "tag": "0007_push",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794751100421,
+      "tag": "0008_loterie",
+      "breakpoints": true
     }
   ]
 }

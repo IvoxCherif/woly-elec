@@ -102,3 +102,58 @@ export async function claudeKeyStatus(): Promise<KeyStatus> {
   cache.__wolyClaudeStatus = { at: Date.now(), status };
   return status;
 }
+
+// ——— Lecture d'une photo de l'écran du compteur ———
+
+export type PhotoReading = { valeur: number | null; code: "801" | "813" | "814" | null; lisible: boolean };
+export type PhotoResult = { ok: true; reading: PhotoReading; usage: ClaudeUsage } | { ok: false; reason: "non_configure" | "refus" | "quota_api" | "erreur"; usage?: ClaudeUsage };
+
+const PHOTO_PROMPT = `Cette photo montre l'écran d'un compteur d'électricité prépayé Woyofal (Sénégal).
+Lis le nombre affiché sur l'écran (des kWh). Recopie-le exactement, avec la virgule ou le point décimal s'il y en a un ; n'invente aucun chiffre.
+Si un code est visible à l'écran (801 = crédit restant, 813 = consommation de la veille, 814 = consommation du mois), indique-le, sinon code = "aucun".
+Si l'écran est flou, coupé, éteint ou qu'aucun nombre n'est lisible avec certitude, mets lisible = false et valeur = 0.`;
+
+const PHOTO_SCHEMA = {
+  type: "object",
+  properties: {
+    lisible: { type: "boolean" },
+    valeur: { type: "number" },
+    code: { type: "string", enum: ["801", "813", "814", "aucun"] },
+  },
+  required: ["lisible", "valeur", "code"],
+  additionalProperties: false,
+};
+
+/** Lit le nombre affiché sur une photo de l'écran du compteur (Claude Haiku 5.5, réponse JSON imposée). */
+export async function readMeterPhoto(base64: string, mediaType: "image/jpeg" | "image/png" | "image/webp"): Promise<PhotoResult> {
+  if (!claudeEnabled()) return { ok: false, reason: "non_configure" };
+  try {
+    const response = await client().messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 1000,
+      output_config: { effort: "low", format: { type: "json_schema", schema: PHOTO_SCHEMA } },
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+            { type: "text", text: PHOTO_PROMPT },
+          ],
+        },
+      ],
+    });
+    const usage = usageOf(response.model, response.usage);
+    if (response.stop_reason === "refusal") return { ok: false, reason: "refus", usage };
+    const text = response.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+    const j = JSON.parse(text) as { lisible?: boolean; valeur?: number; code?: string };
+    const valeur = j.lisible && typeof j.valeur === "number" && Number.isFinite(j.valeur) && j.valeur >= 0 && j.valeur < 1_000_000 ? j.valeur : null;
+    const code = j.code === "801" || j.code === "813" || j.code === "814" ? j.code : null;
+    return { ok: true, reading: { valeur, code, lisible: !!j.lisible && valeur !== null }, usage };
+  } catch (error) {
+    if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) return { ok: false, reason: "non_configure" };
+    if (error instanceof Anthropic.RateLimitError) return { ok: false, reason: "quota_api" };
+    if (error instanceof Anthropic.APIError) console.error(`[photo] erreur API ${error.status}`);
+    else console.error("[photo] erreur", (error as Error).message);
+    return { ok: false, reason: "erreur" };
+  }
+}

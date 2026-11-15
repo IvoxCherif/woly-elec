@@ -262,3 +262,25 @@ export const parametres = pgTable("parametres", {
   valeur: jsonb("valeur").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/** Loterie : un client tiré au sort reçoit un mois d'électricité offert (recharge faite par l'équipe). */
+export const tirages = pgTable(
+  "tirages",
+  {
+    id: serial("id").primaryKey(),
+    clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
+    compteurId: uuid("compteur_id").references(() => compteurs.id, { onDelete: "set null" }),
+    nom: text("nom").notNull().default(""),
+    email: text("email").notNull().default(""),
+    telephone: text("telephone"),
+    numeroCompteur: text("numero_compteur").notNull(),
+    nomCompteur: text("nom_compteur").notNull().default(""),
+    consoMoisKwh: real("conso_mois_kwh"), // estimation d'après les relevés (null si aucun relevé)
+    montantMois: integer("montant_mois"), // montant d'une recharge couvrant ce mois, en FCFA
+    participants: integer("participants").notNull().default(0),
+    statut: text("statut").notNull().default("tire"), // tire | recharge | annule
+    createdAt: createdAt(),
+    rechargeAt: timestamp("recharge_at", { withTimezone: true }),
+  },
+  (t) => [index("tirages_date_idx").on(t.createdAt)],
+);

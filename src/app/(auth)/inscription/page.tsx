@@ -99,6 +99,7 @@ export default function Inscription() {
     mot_de_passe_court: "Le mot de passe doit faire au moins 8 caractères.",
     deja_inscrit: "Cette adresse a déjà un compte : connectez-vous.",
     compteur_invalide: "Numéro de compteur invalide.",
+    compteur_deja_utilise: "Ce compteur est déjà enregistré sur Woly Elec. Vérifiez le numéro ou écrivez à support@wolyelec.com s'il s'agit du vôtre.",
     consentement_requis: "Votre accord est nécessaire pour calculer vos prévisions.",
     trop_de_comptes: "Trop de comptes créés depuis cette connexion. Réessayez plus tard.",
   };
@@ -142,6 +143,13 @@ export default function Inscription() {
         return setError(ERR[r?.data.error] ?? "Vérification impossible.");
       }
       return setStep(2);
+    }
+    if (step === 2 && live) {
+      setBusy(true);
+      const r = await post("/api/auth/check-meter", { numero: meter }).catch(() => null);
+      setBusy(false);
+      if (r?.ok && r.data.disponible === false) return setError(ERR.compteur_deja_utilise);
+      if (r && !r.ok && r.data.error === "compteur_invalide") return setError(ERR.compteur_invalide);
     }
     if (step === 5 && live) {
       setBusy(true);

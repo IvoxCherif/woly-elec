@@ -63,7 +63,8 @@ button.sw[aria-checked="true"]::after{left:23px}
 /* Grilles utilitaires */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:20px}
-.grid3f{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.grid3f{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.grid3f>*,.grid2>*{min-width:0}
 .stack{display:flex;flex-direction:column;gap:20px}
 .center{max-width:560px;margin:0 auto;width:100%}
 .radio{display:flex;align-items:center;gap:12px;border:1.5px solid #C9D6CF;border-radius:12px;padding:12px 14px;min-height:56px;background:#fff;cursor:pointer;width:100%;text-align:left}
@@ -109,7 +110,7 @@ button.sw[aria-checked="true"]::after{left:23px}
   .pad{padding:16px 14px 28px;gap:16px}
   .app.has-tabs .pad{padding-bottom:calc(100px + env(safe-area-inset-bottom))}
   .card{padding:16px}
-  .grid3f{grid-template-columns:1fr}
+  .grid3f{grid-template-columns:minmax(0,1fr)}
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .grid2{gap:16px}
   .row{min-width:0}

@@ -1,6 +1,6 @@
 import { isAdmin } from "@/server/auth";
 import { json, readJson, withDb } from "@/server/http";
-import { ActionError, adminAlerts, adminIa, adminPayments, adminOverview, setClientIaQuota, setClientVip, setGlobalIaQuota, adminSupport, adminTariffs, adminTemplates, adminUsers, publishTariff, saveTemplate, setSupportStatus } from "@/server/repo";
+import { ActionError, drawLottery, lotteryHistory, lotteryParticipants, setLotteryStatus, adminAlerts, adminIa, adminPayments, adminOverview, setClientIaQuota, setClientVip, setGlobalIaQuota, adminSupport, adminTariffs, adminTemplates, adminUsers, publishTariff, saveTemplate, setSupportStatus } from "@/server/repo";
 import type { TariffJson } from "@/lib/engine";
 import { CLAUDE_MODEL, claudeKeyStatus } from "@/server/claude";
 import { paymentMode, saspayConfig, saveSaspayConfig, testKey } from "@/server/saspay";
@@ -40,6 +40,11 @@ export async function GET(req: Request) {
           paiements: await adminPayments(db),
         });
       }
+      case "loterie": {
+        const exclure = url.searchParams.get("exclure") !== "0";
+        const actifs = url.searchParams.get("actifs") === "1";
+        return json({ tirages: await lotteryHistory(db), participants: await lotteryParticipants(db, { exclureGagnants: exclure, actifsSeulement: actifs }) });
+      }
       case "ia":
         return json({ ...(await adminIa(db)), modele: CLAUDE_MODEL, cle: await claudeKeyStatus() });
       default:
@@ -52,7 +57,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!(await isAdmin())) return json({ error: "non_autorise" }, 401);
   return withDb(async (db) => {
-    const body = await readJson<{ type: string; config?: TariffJson; version?: string; id?: string | number; texte?: string; statut?: string; vip?: boolean; valeur?: number | null; cle?: string; webhook?: string; actif?: boolean }>(req);
+    const body = await readJson<{ type: string; config?: TariffJson; version?: string; id?: string | number; texte?: string; statut?: string; vip?: boolean; exclure?: boolean; actifs?: boolean; valeur?: number | null; cle?: string; webhook?: string; actif?: boolean }>(req);
     if (body?.type === "saspay") {
       try {
         await saveSaspayConfig(db, { cle: body.cle, webhook: body.webhook, actif: body.actif });
@@ -63,6 +68,14 @@ export async function POST(req: Request) {
       return json({ ok: true });
     }
     try {
+      if (body?.type === "loterie_tirage") {
+        const gagnant = await drawLottery(db, { exclureGagnants: body.exclure !== false, actifsSeulement: body.actifs === true });
+        return json({ ok: true, gagnant });
+      }
+      if (body?.type === "loterie_statut" && body.id !== undefined && (body.statut === "recharge" || body.statut === "annule")) {
+        await setLotteryStatus(db, Number(body.id), body.statut);
+        return json({ ok: true });
+      }
       if (body?.type === "ia_quota" && typeof body.valeur === "number") {
         await setGlobalIaQuota(db, body.valeur);
         return json({ ok: true });
