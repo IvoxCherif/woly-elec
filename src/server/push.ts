@@ -63,7 +63,10 @@ export async function sendPush(db: DB, clientId: string, m: PushMessage, opts: {
       if (!c?.canaux?.push) return 0;
     }
     const subs = await db.select().from(pushAbonnements).where(eq(pushAbonnements.clientId, clientId));
-    if (!subs.length) return 0;
+    if (!subs.length) {
+      if (opts.force) console.log("[push] test demandé mais aucun téléphone abonné pour ce client");
+      return 0;
+    }
     const { publicKey, privateKey } = await vapidKeys(db);
     const payload = JSON.stringify({ title: m.title, body: m.body, url: m.url ?? "/app", tag: m.tag });
     let delivered = 0;
@@ -80,10 +83,11 @@ export async function sendPush(db: DB, clientId: string, m: PushMessage, opts: {
         } catch (e) {
           const status = (e as { statusCode?: number }).statusCode;
           if (status === 404 || status === 410) gone.push(s.id); // appareil désabonné ou désinstallé
-          else console.error(`[push] envoi impossible (${status ?? "réseau"})`);
+          else console.error(`[push] envoi refusé par le service de notifications (${status ?? "réseau"}) ${(e as { body?: string }).body ?? (e as Error).message}`.slice(0, 300));
         }
       }),
     );
+    console.log(`[push] « ${m.title} » : ${delivered}/${subs.length} téléphone(s) atteint(s)${gone.length ? `, ${gone.length} désabonné(s)` : ""}`);
     if (gone.length) await db.delete(pushAbonnements).where(inArray(pushAbonnements.id, gone));
     if (delivered) await db.update(pushAbonnements).set({ lastUsedAt: new Date() }).where(eq(pushAbonnements.clientId, clientId));
     return delivered;

@@ -39,10 +39,10 @@ export function useAdmin<T>(vue: string, params = "") {
   return { data, live, error, reload: load };
 }
 
-export async function adminPost(body: unknown): Promise<{ ok: boolean; error?: string }> {
+export async function adminPost(body: unknown): Promise<{ ok: boolean; error?: string; envoyees?: number }> {
   const r = await fetch("/api/admin/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
-  return { ok: r.ok, error: j.error };
+  return { ok: r.ok, error: j.error, envoyees: j.envoyees };
 }
 
 export function SourceBadge({ live }: { live: boolean | null }) {

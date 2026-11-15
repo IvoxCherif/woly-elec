@@ -31,6 +31,25 @@ function VipToggle({ u, live, onDone }: { u: AdminUser; live: boolean | null; on
   );
 }
 
+/** Téléphones abonnés aux notifications push, avec envoi d'une notification de test. */
+function PushCell({ u, live, onDone }: { u: AdminUser; live: boolean | null; onDone: (msg: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const n = u.push ?? 0;
+  async function test() {
+    setBusy(true);
+    const r = await adminPost({ type: "push_test", id: u.id });
+    setBusy(false);
+    const sent = (r as { envoyees?: number }).envoyees ?? 0;
+    onDone(!r.ok ? "Envoi impossible." : sent > 0 ? `Notification de test envoyée à ${u.name} (${sent} téléphone${sent > 1 ? "s" : ""}).` : `${u.name} n'a plus de téléphone abonné.`);
+  }
+  return (
+    <span className="row" style={{ gap: 6 }}>
+      <span className={`badge ${n ? "b-ok" : "b-trial"}`}>{n}</span>
+      {n > 0 && live && <button type="button" className="btn btn-line btn-sm" onClick={test} disabled={busy}>{busy ? "…" : "Tester"}</button>}
+    </span>
+  );
+}
+
 /** Quota de questions IA propre au client (vide = quota général). */
 function QuotaCell({ u, live, onDone }: { u: AdminUser; live: boolean | null; onDone: (msg: string) => void }) {
   const initial = u.quotaIa == null ? "" : String(u.quotaIa);
@@ -90,16 +109,17 @@ export default function Utilisateurs() {
       </div>
       {toast && <div className="badge b-ok" role="status" style={{ margin: "0 20px 12px" }}>{toast}</div>}
       <div className="scr">
-        <table className="tbl" style={{ minWidth: 1220 }}>
-          <thead><tr><th>Utilisateur</th><th>E-mail</th><th>Connexion</th><th>WhatsApp</th><th className="n">Compteurs</th><th className="n">Relevés</th><th>Offre</th><th>VIP</th><th>Quota IA</th><th>Inscrit</th><th>Dernière visite</th></tr></thead>
+        <table className="tbl" style={{ minWidth: 1340 }}>
+          <thead><tr><th>Utilisateur</th><th>E-mail</th><th>Connexion</th><th>WhatsApp</th><th className="n">Compteurs</th><th className="n">Relevés</th><th>Offre</th><th>VIP</th><th>Quota IA</th><th>Notifications</th><th>Inscrit</th><th>Dernière visite</th></tr></thead>
           <tbody>
-            {list.length === 0 && <tr><td colSpan={11} style={{ textAlign: "center", color: "var(--mut)", padding: 28 }}>{live === null ? "Chargement…" : "Aucun utilisateur."}</td></tr>}
+            {list.length === 0 && <tr><td colSpan={12} style={{ textAlign: "center", color: "var(--mut)", padding: 28 }}>{live === null ? "Chargement…" : "Aucun utilisateur."}</td></tr>}
             {list.map((u) => (
               <tr key={u.id}>
                 <td><b>{u.name}</b></td><td>{u.email ?? "—"}</td><td>{u.method ?? "—"}</td><td>{u.phone}</td><td className="n">{u.meters}</td><td className="n">{u.readings}</td>
                 <td><span className={`badge ${u.vip ? "b-ia" : u.status === "Actif" ? "b-ok" : u.status === "Essai" ? "b-trial" : "b-risk"}`}>{u.pack}</span></td>
                 <td><VipToggle u={u} live={live} onDone={done} /></td>
                 <td><QuotaCell u={u} live={live} onDone={done} /></td>
+                <td><PushCell u={u} live={live} onDone={done} /></td>
                 <td>{u.createdAt ? ago(u.createdAt) : "—"}</td><td>{live ? ago(u.lastSeen) : u.lastSeen}</td>
               </tr>
             ))}

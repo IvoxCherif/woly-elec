@@ -5,6 +5,7 @@ import type { TariffJson } from "@/lib/engine";
 import { CLAUDE_MODEL, claudeKeyStatus } from "@/server/claude";
 import { paymentMode, saspayConfig, saveSaspayConfig, testKey } from "@/server/saspay";
 import { publicOrigin } from "@/server/ratelimit";
+import { sendPush } from "@/server/push";
 
 export const runtime = "nodejs";
 
@@ -69,6 +70,10 @@ export async function POST(req: Request) {
       if (body?.type === "vip" && body.id && typeof body.vip === "boolean") {
         await setClientVip(db, String(body.id), body.vip);
         return json({ ok: true });
+      }
+      if (body?.type === "push_test" && body.id) {
+        const n = await sendPush(db, String(body.id), { title: "Woly Elec", body: "Notification de test : vos alertes avant coupure, paiements et rappels arriveront ici.", url: "/app/alertes", tag: "test" }, { force: true });
+        return json({ ok: true, envoyees: n });
       }
       if (body?.type === "quota_client" && body.id && (body.valeur === null || typeof body.valeur === "number")) {
         await setClientIaQuota(db, String(body.id), body.valeur);
