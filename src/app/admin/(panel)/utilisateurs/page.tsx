@@ -12,7 +12,9 @@ type F = "tous" | "Actif" | "Essai" | "Expiré" | "VIP";
 function VipToggle({ u, live, onDone }: { u: AdminUser; live: boolean | null; onDone: (msg: string) => void }) {
   const [on, setOn] = useState(!!u.vip);
   const [busy, setBusy] = useState(false);
-  useEffect(() => setOn(!!u.vip), [u.vip]);
+  useEffect(() => {
+    setOn(!!u.vip);
+  }, [u.vip]);
   async function toggle() {
     if (!live || busy) return;
     const next = !on;
@@ -33,7 +35,9 @@ function VipToggle({ u, live, onDone }: { u: AdminUser; live: boolean | null; on
 function QuotaCell({ u, live, onDone }: { u: AdminUser; live: boolean | null; onDone: (msg: string) => void }) {
   const initial = u.quotaIa == null ? "" : String(u.quotaIa);
   const [v, setV] = useState(initial);
-  useEffect(() => setV(initial), [initial]);
+  useEffect(() => {
+    setV(initial);
+  }, [initial]);
   async function save() {
     if (!live || v === initial) return;
     const clean = v.replace(/\s/g, "");

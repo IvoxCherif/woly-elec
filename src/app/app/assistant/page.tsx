@@ -19,7 +19,10 @@ export default function Assistant() {
   const quota = state.iaQuota ?? IA_QUOTA_PER_METER;
   const ia = state.subscription.pack === "ia";
 
-  useEffect(() => end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), [state.chat.length]);
+  useEffect(() => {
+    // Accolades obligatoires : scrollIntoView peut renvoyer une promesse, que React prendrait pour une fonction de nettoyage
+    end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [state.chat.length]);
 
   async function send(text: string) {
     const question = text.trim();
