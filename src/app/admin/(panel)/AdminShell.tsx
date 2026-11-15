@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { Logo } from "@/components/ui";
 import { BackButton } from "@/components/BackButton";
+import { MenuBackdrop, MenuButton, useMobileMenu } from "@/components/MobileMenu";
 
 const NAV = [
   { href: "/admin", label: "Tableau de bord", icon: "home", title: "Vue d'ensemble" },
@@ -21,10 +22,16 @@ const NAV = [
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const current = NAV.find((n) => (n.href === "/admin" ? path === "/admin" : path.startsWith(n.href)));
+  const menu = useMobileMenu();
   return (
     <div className="app">
-      <aside className="side" style={{ background: "#0A2A20" }} aria-label="Menu d'administration">
-        <div className="brand" style={{ padding: "6px 10px 6px" }}><Logo dark size={36} href="/" /></div>
+      <MenuBackdrop open={menu.open} onClose={menu.close} />
+      <aside id="menu-admin" className={`side${menu.open ? " open" : ""}`} style={{ background: "#0A2A20" }} aria-label="Menu d'administration">
+        <div className="brand row" style={{ padding: "6px 10px 6px" }}>
+          <Logo dark size={36} href="/" />
+          <span className="sp" />
+          <span className="only-m"><MenuButton open dark onClick={menu.close} controls="menu-admin" /></span>
+        </div>
         <span className="badge b-trial trial" style={{ alignSelf: "flex-start", margin: "0 10px 16px" }}>Administration</span>
         {NAV.map((n) => (
           <Link key={n.href} href={n.href} aria-current={current?.href === n.href ? "page" : undefined}><Icon name={n.icon} /> {n.label}</Link>
@@ -40,8 +47,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </aside>
       <main id="contenu">
         <div className="topbar">
+          <span className="only-m"><MenuButton open={menu.open} onClick={menu.toggle} controls="menu-admin" /></span>
           {path !== "/admin" && <BackButton fallback="/admin" compact />}
-          <h1 className="mont ink" style={{ fontWeight: 800, fontSize: 22 }}>{current?.title ?? "Administration"}</h1>
+          <h1 className="mont ink topbar-title" style={{ fontWeight: 800, fontSize: 22 }}>{current?.title ?? "Administration"}</h1>
           <span className="sp" />
           <span className="avatar" style={{ background: "var(--g9)", color: "var(--yel)" }}>CT</span>
         </div>

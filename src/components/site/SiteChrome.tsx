@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Flag, Icon } from "../Icon";
 import { Logo } from "../ui";
+import { MenuButton, useMobileMenu } from "../MobileMenu";
 
 const NAV = [
   { href: "/", label: "Accueil" },
@@ -15,24 +16,31 @@ const NAV = [
 
 export function SiteHeader() {
   const path = usePathname();
+  const menu = useMobileMenu();
   return (
-    <header className="hdr">
+    <header className={`hdr${menu.open ? " open" : ""}`}>
       <div className="wrap">
         <Logo href="/" />
-        <nav aria-label="Navigation principale">
+        <span className="sp only-m" />
+        <span className="only-m"><MenuButton open={menu.open} onClick={menu.toggle} controls="menu-site" /></span>
+        <nav id="menu-site" aria-label="Navigation principale" onClick={(e) => (e.target as HTMLElement).closest("a") && menu.close()}>
           {NAV.map((n) => (
             <Link key={n.href} href={n.href} aria-current={path === n.href ? "page" : undefined}>
               {n.label}
             </Link>
           ))}
+          <Link className="only-m" href="/installer">Installer l&apos;application</Link>
         </nav>
-        <span className="sp" />
-        <Link className="btn btn-line btn-sm" href="/connexion">
-          Se connecter
-        </Link>
-        <Link className="btn btn-yel btn-sm" href="/inscription">
-          Commencer mes 30 jours gratuits
-        </Link>
+        <span className="sp hide-m" />
+        <div className="hdr-cta">
+          <Link className="btn btn-line btn-sm" href="/connexion">
+            Se connecter
+          </Link>
+          <Link className="btn btn-yel btn-sm" href="/inscription">
+            <span className="hide-m">Commencer mes 30 jours gratuits</span>
+            <span className="only-m">Essai gratuit 30 jours</span>
+          </Link>
+        </div>
       </div>
     </header>
   );

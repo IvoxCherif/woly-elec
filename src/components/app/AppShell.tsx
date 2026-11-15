@@ -9,6 +9,7 @@ import { trialDaysLeft, useStore } from "@/lib/store";
 import { PACKS } from "@/lib/pricing";
 import { ReleveModal, RechargeModal } from "./Modals";
 import { BackButton, parentOf } from "../BackButton";
+import { MenuBackdrop, MenuButton, useMobileMenu } from "../MobileMenu";
 
 const NAV = [
   { href: "/app", label: "Accueil", icon: "home" },
@@ -25,6 +26,13 @@ const NAV2 = [
   { href: "/app/profil", label: "Profil", icon: "user" },
   { href: "/app/support", label: "Support", icon: "chat" },
   { href: "/app/installer", label: "Installer l'app", icon: "download" },
+];
+
+// Barre du bas sur téléphone (le reste est dans le menu)
+const TABS = [
+  { href: "/app", label: "Accueil", icon: "home" },
+  { href: "/app/plan", label: "Plan", icon: "calendar" },
+  { href: "/app/alertes", label: "Alertes", icon: "bell" },
 ];
 
 const TITLES: Record<string, string> = {
@@ -51,6 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const router = useRouter();
   const { state, ready, today, meter, selectMeter, toasts, mode } = useStore();
+  const menu = useMobileMenu();
   const [releve, setReleve] = useState(false);
   const [recharge, setRecharge] = useState(false);
   const openReleve = useCallback(() => setReleve(true), []);
@@ -75,10 +84,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <UICtx.Provider value={{ openReleve, openRecharge }}>
-      <div className="app">
-        <aside className="side" aria-label="Menu de l'application">
-          <div className="brand" style={{ padding: "6px 10px 20px" }}>
+      <div className="app has-tabs">
+        <MenuBackdrop open={menu.open} onClose={menu.close} />
+        <aside id="menu-app" className={`side${menu.open ? " open" : ""}`} aria-label="Menu de l'application">
+          <div className="brand row" style={{ padding: "6px 10px 20px" }}>
             <Logo dark size={38} href="/" />
+            <span className="sp" />
+            <span className="only-m"><MenuButton open dark onClick={menu.close} controls="menu-app" /></span>
           </div>
           {NAV.map((n) => (
             <Link key={n.href} href={n.href} aria-current={isActive(n.href) ? "page" : undefined}>
@@ -129,8 +141,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
         <main id="contenu">
           <div className="topbar">
+            <span className="only-m"><MenuButton open={menu.open} onClick={menu.toggle} controls="menu-app" /></span>
             {path !== "/app" && <BackButton fallback={parentOf(path)} compact />}
-            <h1 className="mont ink" style={{ fontWeight: 800, fontSize: 22 }}>
+            <h1 className="mont ink topbar-title" style={{ fontWeight: 800, fontSize: 22 }}>
               {title}
             </h1>
             {path === "/app/compteurs" && sub.status === "actif" && (
@@ -140,7 +153,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
             <span className="sp" />
             {state.meters.length > 0 && (
-              <label className="sel" style={{ position: "relative" }}>
+              <label className="sel topbar-meter" style={{ position: "relative" }}>
                 <Icon name="plug" size="s" />
                 <span className="sr" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>
                   Compteur affiché
@@ -158,7 +171,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </select>
               </label>
             )}
-            <button type="button" className="btn btn-blue btn-sm" onClick={openReleve}>
+            <button type="button" className="btn btn-blue btn-sm hide-m" onClick={openReleve}>
               <Icon name="plus" size="s" />
               Nouveau relevé
             </button>
@@ -190,6 +203,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {ready ? children : <Loading />}
           </div>
         </main>
+        <nav className="tabbar no-print" aria-label="Navigation rapide">
+          <TabLink t={TABS[0]} active={isActive(TABS[0].href)} />
+          <TabLink t={TABS[1]} active={isActive(TABS[1].href)} />
+          <button type="button" className="tb-main" onClick={openReleve} aria-label="Nouveau relevé">
+            <span className="tb-ic"><Icon name="plus" /></span>
+            Relevé
+          </button>
+          <TabLink t={TABS[2]} active={isActive(TABS[2].href)} badge={unread} />
+          <button type="button" onClick={menu.toggle} aria-expanded={menu.open} aria-controls="menu-app">
+            <span className="tb-ic"><Icon name="menu" /></span>
+            Menu
+          </button>
+        </nav>
       </div>
       {ready && meter && (
         <>
@@ -206,6 +232,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ))}
       </div>
     </UICtx.Provider>
+  );
+}
+
+function TabLink({ t, active, badge = 0 }: { t: (typeof TABS)[number]; active: boolean; badge?: number }) {
+  return (
+    <Link href={t.href} aria-current={active ? "page" : undefined}>
+      <span className="tb-ic">
+        <Icon name={t.icon} />
+        {badge > 0 && <span className="tb-pip" aria-label={`${badge} non lues`}>{badge > 9 ? "9+" : badge}</span>}
+      </span>
+      {t.label}
+    </Link>
   );
 }
 
