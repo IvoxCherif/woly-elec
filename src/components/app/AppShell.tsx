@@ -10,6 +10,7 @@ import { PACKS } from "@/lib/pricing";
 import { ReleveModal, RechargeModal } from "./Modals";
 import { BackButton, parentOf } from "../BackButton";
 import { MenuBackdrop, MenuButton, useMobileMenu } from "../MobileMenu";
+import { Splash } from "./Splash";
 
 const NAV = [
   { href: "/app", label: "Accueil", icon: "home" },
@@ -84,6 +85,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <UICtx.Provider value={{ openReleve, openRecharge }}>
+      <Splash ready={ready} />
       <div className="app has-tabs">
         <MenuBackdrop open={menu.open} onClose={menu.close} />
         <aside id="menu-app" className={`side${menu.open ? " open" : ""}`} aria-label="Menu de l'application">
