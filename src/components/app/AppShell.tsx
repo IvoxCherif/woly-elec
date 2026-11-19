@@ -90,6 +90,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (expired && !path.startsWith("/app/abonnement") && path !== "/app/fin-essai" && path !== "/app/profil") router.replace("/app/fin-essai");
   }, [ready, sub.status, left, path, router, isMember]);
 
+  // Notification « Faites votre relevé » : le formulaire de relevé s'ouvre directement
+  useEffect(() => {
+    if (!ready || !meter || !canWrite) return;
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("releve") !== "1") return;
+    setReleve(true);
+    q.delete("releve");
+    window.history.replaceState(null, "", `${window.location.pathname}${q.size ? `?${q}` : ""}`);
+  }, [ready, meter, canWrite]);
+
   async function switchAccount(id: string) {
     await fetch("/api/partage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "compte", id }) }).catch(() => undefined);
     window.location.assign("/app");

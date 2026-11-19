@@ -1020,6 +1020,81 @@ export async function weeklySummaries(db: DB, today = todayLocal()): Promise<num
   return sent;
 }
 
+// ——— Rappel de relevé chaque semaine, puis relances toutes les 2 heures ———
+
+/** Lundi de la semaine (clé du cycle de rappels). */
+const weekStart = (d: Date) => {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return isoDate(x);
+};
+
+/**
+ * Compteur sans relevé depuis plus de 6 jours : notification « Faites votre relevé » (une fois par semaine),
+ * puis jusqu'à N relances espacées de 2 heures (réglage « Relances de mise à jour » du titulaire : 2 avec
+ * Woly Elec 1, 0 à 6 avec Woly Elec IA). Tout s'arrête dès que le relevé est fait.
+ * Les membres invités avec le rôle « Gérer » reçoivent aussi le rappel pour les compteurs partagés.
+ * Appelée toutes les heures entre 8 h et 21 h par la tâche planifiée.
+ */
+export async function readingReminders(db: DB, now = new Date()): Promise<number> {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const limit = isoDate(addDays(today, -6));
+  const week = weekStart(today);
+  const owners = await db
+    .select({ id: t.clients.id, relances: t.clients.relances, vip: t.clients.vip, statut: t.abonnements.statut })
+    .from(t.clients)
+    .leftJoin(t.abonnements, eq(t.abonnements.clientId, t.clients.id));
+  let sent = 0;
+  for (const o of owners) {
+    if (!o.vip && o.statut !== "essai" && o.statut !== "actif") continue;
+    const meters = await db.select({ id: t.compteurs.id, nom: t.compteurs.nom, createdAt: t.compteurs.createdAt }).from(t.compteurs).where(eq(t.compteurs.clientId, o.id));
+    if (!meters.length) continue;
+    const last = await db
+      .select({ id: t.releves.compteurId, d: sql<string>`max(${t.releves.date})` })
+      .from(t.releves)
+      .where(inArray(t.releves.compteurId, meters.map((m) => m.id)))
+      .groupBy(t.releves.compteurId);
+    const lastOf = new Map(last.map((r) => [r.id, String(r.d)]));
+    // Compteur ajouté il y a moins de 6 jours : on lui laisse le temps du premier relevé
+    const stale = meters.filter((m) => {
+      const d = lastOf.get(m.id);
+      return d ? d < limit : isoDate(m.createdAt) < limit;
+    });
+    if (!stale.length) continue;
+
+    const prefix = `${o.id}:releve:${week}:`;
+    const done = await db.select().from(t.rappels).where(sql`${t.rappels.cle} like ${prefix + "%"}`).orderBy(desc(t.rappels.createdAt));
+    const max = Math.max(0, Math.min(6, o.relances));
+    const step = done.length;
+    if (step > max) continue; // rappel + toutes les relances déjà envoyés cette semaine
+    if (step > 0 && now.getTime() - done[0].createdAt.getTime() < 2 * 3600_000 - 60_000) continue;
+    const [fresh] = await db.insert(t.rappels).values({ cle: `${prefix}${step}`, createdAt: now }).onConflictDoNothing().returning();
+    if (!fresh) continue;
+
+    const days = (m: (typeof stale)[number]) => {
+      const d = lastOf.get(m.id);
+      return d ? Math.round((today.getTime() - new Date(`${d}T00:00:00`).getTime()) / 86400_000) : null;
+    };
+    const detail = stale
+      .slice(0, 3)
+      .map((m) => (days(m) === null ? `${m.nom} : aucun relevé` : `${m.nom} : dernier relevé il y a ${days(m)} jours`))
+      .join(" · ");
+    const msg = {
+      title: step === 0 ? "Faites votre relevé de la semaine" : "Rappel : votre relevé n'est pas fait",
+      body: `${detail}. Tapez 801, 813 et 814 sur le compteur : 1 minute pour garder des prévisions justes.`,
+      url: "/app?releve=1",
+      tag: "releve-semaine",
+    };
+    sent += await sendPush(db, o.id, msg);
+    const members = await db.select().from(t.partages).where(and(eq(t.partages.proprietaireId, o.id), eq(t.partages.statut, "actif"), eq(t.partages.role, "gerer")));
+    for (const p of members) {
+      if (p.membreId && (p.compteurIds === null || stale.some((m) => p.compteurIds!.includes(m.id)))) sent += await sendPush(db, p.membreId, msg);
+    }
+  }
+  if (sent) console.log(`[rappels] ${sent} rappel(s) de relevé envoyé(s)`);
+  return sent;
+}
+
 // ——— Loterie : un mois d'électricité offert à un client tiré au sort ———
 
 export type LotteryOptions = { exclureGagnants?: boolean; actifsSeulement?: boolean };

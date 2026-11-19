@@ -25,7 +25,7 @@ vi.mock("web-push", async (orig) => {
 });
 
 const { sendPush, savePushSubscription, vapidKeys, pushDeviceCount } = await import("./push");
-const { applyAction, createPendingPayment, paymentByReference, priceOrder, settlePayment, signup, weeklySummaries } = await import("./repo");
+const { applyAction, createPendingPayment, paymentByReference, priceOrder, readingReminders, settlePayment, signup, weeklySummaries } = await import("./repo");
 
 let db: DB;
 const today = new Date(2026, 10, 17); // mardi 17 novembre 2026
@@ -112,5 +112,32 @@ describe("notifications push", () => {
     sent.length = 0;
     await weeklySummaries(db, monday);
     expect(sent.filter((x) => x.endpoint.includes("p3"))).toHaveLength(0);
+  });
+
+  it("rappel de relevé hebdomadaire, relances toutes les 2 heures, arrêt après le relevé", async () => {
+    const id = await client("releve@exemple.sn", "0145 6666 004");
+    await savePushSubscription(db, id, sub("p4"));
+    const mine = () => sent.filter((x) => x.endpoint.includes("p4")).map((x) => JSON.parse(x.payload));
+    sent.length = 0;
+    // Relevé du 17 novembre (inscription) : rien avant 6 jours
+    expect(await readingReminders(db, new Date(2026, 10, 20, 9))).toBe(0);
+    // Mardi 24 : relevé vieux de 7 jours → rappel, puis 2 relances (réglage par défaut) espacées de 2 h
+    await readingReminders(db, new Date(2026, 10, 24, 9));
+    expect(mine()).toHaveLength(1);
+    expect(mine()[0]).toMatchObject({ title: "Faites votre relevé de la semaine", url: "/app?releve=1" });
+    expect(mine()[0].body).toContain("dernier relevé il y a 7 jours");
+    await readingReminders(db, new Date(2026, 10, 24, 10)); // moins de 2 h : rien
+    expect(mine()).toHaveLength(1);
+    await readingReminders(db, new Date(2026, 10, 24, 11, 1));
+    expect(mine()[1].title).toBe("Rappel : votre relevé n'est pas fait");
+    await readingReminders(db, new Date(2026, 10, 24, 13, 2));
+    await readingReminders(db, new Date(2026, 10, 24, 15, 3)); // au-delà des 2 relances : rien
+    expect(mine()).toHaveLength(3);
+    // Relevé fait : plus de rappel
+    const meterId = (await db.select().from(schema.compteurs)).find((m) => m.clientId === id)!.id;
+    await applyAction(db, id, { type: "reading", meterId, date: "2026-11-25", balanceKwh: 20, monthKwh: 100, yesterdayKwh: 5 }, new Date(2026, 10, 25));
+    sent.length = 0;
+    await readingReminders(db, new Date(2026, 10, 30, 9)); // lundi suivant : relevé de 5 jours, rien
+    expect(mine()).toHaveLength(0);
   });
 });

@@ -79,7 +79,7 @@ export default function Alertes() {
         </div>
         <div className="card col" style={{ gap: 12 }}>
           <span className="lab">Relances de mise à jour</span>
-          <p className="sm">Si vous ne mettez pas à jour votre compteur après le message hebdomadaire, Woly Elec vous relance, avec 2 heures entre chaque message.</p>
+          <p className="sm">Chaque semaine, si votre dernier relevé date de plus de 6 jours, Woly Elec vous envoie « Faites votre relevé ». Sans relevé, il vous relance ensuite, avec 2 heures entre chaque message, et s&apos;arrête dès que le relevé est fait.</p>
           <div className="row" style={{ gap: 14 }}>
             <button type="button" className="avatar" style={{ background: "#fff", border: "1.5px solid #C9D6CF" }} disabled={!ia || state.user.relances <= 0} onClick={() => updateUser({ relances: state.user.relances - 1 })} aria-label="Moins de relances"><Icon name="minus" /></button>
             <span className="big" style={{ fontSize: 32 }}>{state.user.relances}</span>
