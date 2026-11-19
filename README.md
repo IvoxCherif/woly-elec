@@ -1,4 +1,6 @@
-# Woly Elec — Votre électricité, sous contrôle
+# Woly Elec — Saytu sa kuuraŋ
+
+*Votre électricité, sous contrôle.*
 
 SaaS web (Next.js, web-first / PWA) qui aide les clients Woyofal (électricité prépayée, Sénégal) à faire durer leur crédit tout le mois : **combien recharger, quand recharger et quand le crédit va s'épuiser**, avec des alertes avant coupure. Service indépendant, non affilié à la Senelec.
 

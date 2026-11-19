@@ -53,7 +53,7 @@ function layout(title: string, body: string) {
   return `<!doctype html><html lang="fr"><body style="margin:0;background:#F3F6F4;font-family:Arial,Helvetica,sans-serif;color:#4B5A54">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F6F4;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #E1E8E4">
-<tr><td style="background:#0B3D2E;padding:20px 28px"><span style="font:800 22px Arial,sans-serif;color:#ffffff">WOLY <span style="color:#FACC15">ELEC</span></span><br><span style="font-size:12px;color:#9CC4B0">Votre électricité, sous contrôle</span></td></tr>
+<tr><td style="background:#0B3D2E;padding:20px 28px"><span style="font:800 22px Arial,sans-serif;color:#ffffff">WOLY <span style="color:#FACC15">ELEC</span></span><br><span style="font-size:13px;font-weight:700;color:#FACC15">Saytu sa kuuraŋ</span><span style="font-size:12px;color:#9CC4B0"> · Votre électricité, sous contrôle</span></td></tr>
 <tr><td style="padding:28px">
 <h1 style="margin:0 0 14px;font:800 22px Arial,sans-serif;color:#0B3D2E">${esc(title)}</h1>
 ${body}

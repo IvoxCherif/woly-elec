@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SLOGAN } from "@/lib/brand";
 
 /**
  * Écran de chargement de l'application : fond vert du thème, logo et barre de chargement.
@@ -29,6 +30,7 @@ export function Splash({ ready, min = 700, label = "Chargement de votre compte�
         <div className="splash-name">
           <b>WOLY</b> <i>ELEC</i>
         </div>
+        <p className="splash-slogan">{SLOGAN}</p>
         <p className="splash-tag">Votre électricité, sous contrôle</p>
         <div className="splash-bar" aria-hidden="true"><span /></div>
         <span className="splash-sr">{label}</span>

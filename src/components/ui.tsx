@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SLOGAN } from "@/lib/brand";
 import { useEffect, useId, useRef } from "react";
 import { Icon } from "./Icon";
 import type { Level } from "@/lib/engine";
@@ -15,7 +16,7 @@ export function Logo({ dark, size = 44, tagline, href }: { dark?: boolean; size?
       <span className="lw" style={size < 40 ? { fontSize: Math.round(size * 0.52) } : undefined}>
         <b>WOLY</b>
         <i>ELEC</i>
-        {tagline && <span className="tg">Votre électricité, sous contrôle</span>}
+        {tagline && <span className="tg"><b className="slogan-txt">{SLOGAN}</b> · Votre électricité, sous contrôle</span>}
       </span>
     </span>
   );

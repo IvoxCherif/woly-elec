@@ -2,7 +2,7 @@
   "name": "woly-elec",
   "version": "0.1.0",
   "private": true,
-  "description": "Woly Elec — Votre électricité, sous contrôle. SaaS d'aide à la gestion de l'électricité prépayée (Woyofal) au Sénégal.",
+  "description": "Woly Elec — Saytu sa kuuraŋ. Votre électricité, sous contrôle. SaaS d'aide à la gestion de l'électricité prépayée (Woyofal) au Sénégal.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

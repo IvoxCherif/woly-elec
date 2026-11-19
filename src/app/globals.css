@@ -262,3 +262,11 @@ button.sw[aria-checked="true"]::after{left:23px}
 .acct-switch{display:flex;flex-direction:column;gap:4px;margin:0 6px 12px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.08);color:#9CC4B0}
 .acct-switch select{appearance:none;background:transparent;border:0;color:#fff;font:700 15px Inter,sans-serif;outline:0;cursor:pointer;padding:0}
 .acct-switch select option{color:#0B3D2E}
+
+/* ——— Slogan wolof « Saytu sa kuuraŋ » ——— */
+.hero-slogan{font:800 italic clamp(20px,2.4vw,26px)/1.2 Montserrat,Inter,sans-serif;color:var(--yel);letter-spacing:-.01em}
+.hero-slogan span{font:500 normal 15px Inter,sans-serif;color:#9CC4B0;letter-spacing:0}
+.splash-slogan{font:800 italic 20px/1.2 Montserrat,Inter,sans-serif;color:var(--yel);margin-top:-4px;animation:splashUp .6s ease .2s both}
+.side-slogan{margin:-12px 10px 14px;font:700 italic 14px Montserrat,Inter,sans-serif;color:var(--yel);opacity:.9}
+.logo .tg .slogan-txt{font-style:italic;color:var(--yel);font-weight:800}
+.logo:not(.d) .tg .slogan-txt{color:var(--g6)}

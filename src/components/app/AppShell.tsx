@@ -11,6 +11,7 @@ import { ReleveModal, RechargeModal } from "./Modals";
 import { BackButton, parentOf } from "../BackButton";
 import { MenuBackdrop, MenuButton, useMobileMenu } from "../MobileMenu";
 import { Splash } from "./Splash";
+import { SLOGAN } from "@/lib/brand";
 
 const NAV = [
   { href: "/app", label: "Accueil", icon: "home" },
@@ -108,6 +109,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="sp" />
             <span className="only-m"><MenuButton open dark onClick={menu.close} controls="menu-app" /></span>
           </div>
+          <p className="side-slogan" lang="wo">{SLOGAN}</p>
           {access && access.accounts.length > 1 && (
             <label className="acct-switch">
               <span className="xs">Compte affiché</span>

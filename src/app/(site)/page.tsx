@@ -5,6 +5,7 @@ import { Faq, FAQ_ITEMS } from "@/components/site/SiteChrome";
 import { kwhForAmount } from "@/lib/engine";
 import { annualPrice, PACKS } from "@/lib/pricing";
 import { fcfa, num } from "@/lib/format";
+import { SLOGAN, SLOGAN_FR } from "@/lib/brand";
 
 // Les chiffres d'exemple sont calculés par le moteur, pas écrits à la main.
 const T1 = kwhForAmount(10000, { boughtMonthKwh: 0, firstRechargeOfMonth: true }).kwh;
@@ -29,6 +30,9 @@ export default function Home() {
         <div className="wrap" style={{ paddingTop: 72, paddingBottom: 72, display: "flex", flexWrap: "wrap", gap: 48, alignItems: "center", position: "relative", zIndex: 1 }}>
           <div className="col hero-in" style={{ flex: "1 1 520px", gap: 24 }}>
             <span className="badge b-trial" style={{ alignSelf: "flex-start" }}><Icon name="star" size="s" /> Une solution 100 % sénégalaise</span>
+            <p className="hero-slogan" lang="wo">
+              {SLOGAN} <span lang="fr">· {SLOGAN_FR.toLowerCase()}</span>
+            </p>
             <h1 className="h1" style={{ color: "#fff", fontSize: "clamp(36px,5vw,62px)" }}>
               Maîtrisez votre consommation d&apos;électricité <span style={{ color: "var(--yel)" }}>prépayée.</span>
             </h1>

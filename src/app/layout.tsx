@@ -4,7 +4,7 @@ import { NavTracker } from "@/components/BackButton";
 import { InstallCatcher } from "@/components/InstallGuide";
 
 export const metadata: Metadata = {
-  title: { default: "Woly Elec — Votre électricité, sous contrôle", template: "%s · Woly Elec" },
+  title: { default: "Woly Elec — Saytu sa kuuraŋ · Votre électricité, sous contrôle", template: "%s · Woly Elec" },
   description:
     "Woly Elec vous dit combien recharger, quand recharger et quand votre crédit Woyofal va s'épuiser. Service indépendant, non affilié à la Senelec.",
 };
