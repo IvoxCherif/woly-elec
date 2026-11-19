@@ -297,3 +297,41 @@ export const adminPushAbonnements = pgTable("admin_push_abonnements", {
   createdAt: createdAt(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
 });
+
+/**
+ * Partage du compte : le titulaire invite une personne par e-mail, sur tous ses compteurs (compteurIds null)
+ * ou sur certains, avec le rôle « consulter » (voir) ou « gerer » (voir + relevés et recharges).
+ */
+export const partages = pgTable(
+  "partages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    proprietaireId: uuid("proprietaire_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    membreId: uuid("membre_id").references(() => clients.id, { onDelete: "cascade" }), // rempli à l'acceptation
+    email: text("email").notNull(),
+    role: text("role").notNull().default("consulter"), // consulter | gerer
+    compteurIds: jsonb("compteur_ids").$type<string[] | null>(), // null = tous les compteurs
+    statut: text("statut").notNull().default("invite"), // invite | actif | retire
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  },
+  (t) => [index("partages_proprietaire_idx").on(t.proprietaireId), index("partages_membre_idx").on(t.membreId), index("partages_email_idx").on(t.email)],
+);
+
+/** Lien de lecture d'un compteur, sans compte (crédit restant, date de coupure prévue). */
+export const liensPartage = pgTable(
+  "liens_partage",
+  {
+    id: serial("id").primaryKey(),
+    compteurId: uuid("compteur_id").notNull().references(() => compteurs.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    actif: boolean("actif").notNull().default(true),
+    vues: integer("vues").notNull().default(0),
+    createdAt: createdAt(),
+    vuAt: timestamp("vu_at", { withTimezone: true }),
+  },
+  (t) => [index("liens_partage_compteur_idx").on(t.compteurId)],
+);

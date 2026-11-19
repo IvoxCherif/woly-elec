@@ -1,0 +1,112 @@
+{
+  "tts_provider": "heygen",
+  "voice_id": "a16396d04fab4cc2a72cfc8046efa7f3",
+  "voice_credit": null,
+  "bgm": {
+    "path": "assets/bgm/track.mp3",
+    "volume": 0.9,
+    "query": "light optimistic african pop pulse, warm, modern, 110 bpm, bright synth",
+    "mode": "retrieve",
+    "duration_s": 53
+  },
+  "bgm_pending": false,
+  "bgm_provider": "heygen",
+  "bgm_pid": null,
+  "bgm_log": null,
+  "bgm_mode": "retrieve",
+  "bgm_target_duration_s": null,
+  "bgm_seed_duration_s": null,
+  "bgm_loop_count": null,
+  "voices": [],
+  "sfx": [
+    {
+      "id": "phone",
+      "name": "whoosh",
+      "file": "assets/sfx/whoosh.mp3",
+      "source": "openverse",
+      "duration_s": 3.155,
+      "license": "cc0",
+      "credit": "\"Deep Whoosh #1\" by Kinoton is marked with CC0 1.0. To view the terms, visit https://creativecommons.org/publicdomain/zero/1.0/.",
+      "offset_s": 0,
+      "volume": 0.35
+    },
+    {
+      "id": "montant",
+      "name": "swoosh",
+      "file": "assets/sfx/swoosh.mp3",
+      "source": "openverse",
+      "duration_s": 4.613,
+      "license": "cc0",
+      "credit": "\"Swoosh Explosion\" by Electroviolence is marked with CC0 1.0. To view the terms, visit https://creativecommons.org/publicdomain/zero/1.0/.",
+      "offset_s": 0,
+      "volume": 0.35
+    },
+    {
+      "id": "tranche",
+      "name": "whoosh",
+      "file": "assets/sfx/whoosh.mp3",
+      "source": "openverse",
+      "duration_s": 3.155,
+      "license": "cc0",
+      "credit": "\"Deep Whoosh #1\" by Kinoton is marked with CC0 1.0. To view the terms, visit https://creativecommons.org/publicdomain/zero/1.0/.",
+      "offset_s": 0,
+      "volume": 0.35
+    },
+    {
+      "id": "plan",
+      "name": "pop",
+      "file": "assets/sfx/pop.mp3",
+      "source": "openverse",
+      "duration_s": 0.489,
+      "license": "by",
+      "credit": "\"Pop, High, A (H1).wav\" by InspectorJ is licensed under CC BY 4.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/.",
+      "offset_s": 0,
+      "volume": 0.35
+    },
+    {
+      "id": "sim",
+      "name": "swoosh",
+      "file": "assets/sfx/swoosh.mp3",
+      "source": "openverse",
+      "duration_s": 4.613,
+      "license": "cc0",
+      "credit": "\"Swoosh Explosion\" by Electroviolence is marked with CC0 1.0. To view the terms, visit https://creativecommons.org/publicdomain/zero/1.0/.",
+      "offset_s": 0,
+      "volume": 0.35
+    },
+    {
+      "id": "alertes",
+      "name": "notification",
+      "file": "assets/sfx/notification.mp3",
+      "source": "openverse",
+      "duration_s": 0.689,
+      "license": "cc0",
+      "credit": "\"Notification Sound\" by yfjesse is marked with CC0 1.0. To view the terms, visit https://creativecommons.org/publicdomain/zero/1.0/.",
+      "offset_s": 0,
+      "volume": 0.35
+    },
+    {
+      "id": "ia",
+      "name": "pop",
+      "file": "assets/sfx/pop.mp3",
+      "source": "openverse",
+      "duration_s": 0.489,
+      "license": "by",
+      "credit": "\"Pop, High, A (H1).wav\" by InspectorJ is licensed under CC BY 4.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/.",
+      "offset_s": 0,
+      "volume": 0.35
+    },
+    {
+      "id": "fin",
+      "name": "impact",
+      "file": "assets/sfx/impact.mp3",
+      "source": "openverse",
+      "duration_s": 2.623,
+      "license": "cc0",
+      "credit": "\"Impact\" by chriskalos is marked with CC0 1.0. To view the terms, visit https://creativecommons.org/publicdomain/zero/1.0/.",
+      "offset_s": 0,
+      "volume": 0.35
+    }
+  ],
+  "total_duration_s": 0
+}

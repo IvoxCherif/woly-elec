@@ -9,6 +9,7 @@ export const PENDING_COOKIE = "woly_pending";
 export const OAUTH_COOKIE = "woly_oauth";
 export const TWOFA_COOKIE = "woly_2fa";
 export const DEVICE_COOKIE = "woly_dev";
+export const ACCOUNT_COOKIE = "woly_compte";
 const CLIENT_TTL = 30 * 24 * 3600 * 1000; // 30 jours
 const PENDING_TTL = 30 * 60 * 1000; // 30 minutes pour finir l'inscription après Google
 
@@ -127,6 +128,16 @@ export async function deviceId(): Promise<string> {
     c.set(DEVICE_COOKIE, id, { ...cookieBase, maxAge: 365 * 24 * 3600 });
   }
   return id;
+}
+
+/** Compte affiché quand la personne a accès à plusieurs comptes (le sien et des comptes partagés). */
+export async function selectedAccount(): Promise<string | null> {
+  const v = (await cookies()).get(ACCOUNT_COOKIE)?.value;
+  return v && /^[0-9a-f-]{36}$/.test(v) ? v : null;
+}
+
+export async function selectAccount(id: string) {
+  (await cookies()).set(ACCOUNT_COOKIE, id, { ...cookieBase, maxAge: 365 * 24 * 3600 });
 }
 
 export async function isAdmin(): Promise<boolean> {

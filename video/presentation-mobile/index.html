@@ -1,0 +1,143 @@
+<!doctype html>
+<html
+  lang="fr"
+  data-composition-variables='[{"id":"url","type":"string","label":"Adresse","default":"wolyelec.com/app"},{"id":"cta","type":"string","label":"Bouton","default":"30 jours gratuits"}]'
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --g9: #0b3d2e;
+        --g8: #104836;
+        --g1: #e3eee8;
+        --bg: #f3f6f4;
+        --blue: #1d4ed8;
+        --yel: #facc15;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: var(--g9);
+      }
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        font-family: "Inter", sans-serif;
+      }
+      #ground {
+        position: absolute;
+        inset: 0;
+        background: var(--g9);
+      }
+      #deco {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1080px;
+        height: 1920px;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="24.5"
+      data-width="1080"
+      data-height="1920"
+    >
+      <div id="ground"></div>
+      <svg id="deco" viewBox="0 0 1080 1920" aria-hidden="true">
+        <g id="deco-arc">
+          <path
+            id="deco-path"
+            d="M 172 2298 A 520 520 0 1 1 908 2298"
+            fill="none"
+            stroke="#104836"
+            stroke-width="70"
+            stroke-linecap="round"
+          />
+        </g>
+      </svg>
+
+      <div id="hook" data-composition-id="hook" data-composition-src="compositions/hook.html"
+        data-start="0" data-duration="3.4" data-track-index="1" data-track-kind="graphics"
+        data-width="1080" data-height="1920"></div>
+      <div id="phone" data-composition-id="phone" data-composition-src="compositions/phone.html"
+        data-start="3.4" data-duration="4" data-track-index="1" data-track-kind="graphics"
+        data-width="1080" data-height="1920"></div>
+      <div id="montant" data-composition-id="montant" data-composition-src="compositions/montant.html"
+        data-start="7.4" data-duration="2.4" data-track-index="1" data-track-kind="graphics"
+        data-width="1080" data-height="1920"></div>
+      <div id="tranche" data-composition-id="tranche" data-composition-src="compositions/tranche.html"
+        data-start="9.8" data-duration="2.1" data-track-index="1" data-track-kind="graphics"
+        data-width="1080" data-height="1920"></div>
+      <div id="plan" data-composition-id="plan" data-composition-src="compositions/plan.html"
+        data-start="11.9" data-duration="1.9" data-track-index="1" data-track-kind="graphics"
+        data-width="1080" data-height="1920"></div>
+      <div id="sim" data-composition-id="sim" data-composition-src="compositions/sim.html"
+        data-start="13.8" data-duration="1.8" data-track-index="1" data-track-kind="graphics"
+        data-width="1080" data-height="1920"></div>
+      <div id="alertes" data-composition-id="alertes" data-composition-src="compositions/alertes.html"
+        data-start="15.6" data-duration="3.2" data-track-index="1" data-track-kind="graphics"
+        data-width="1080" data-height="1920"></div>
+      <div id="ia" data-composition-id="ia" data-composition-src="compositions/ia.html"
+        data-start="18.8" data-duration="1.9" data-track-index="1" data-track-kind="graphics"
+        data-width="1080" data-height="1920"></div>
+      <div id="fin" data-composition-id="fin" data-composition-src="compositions/fin.html"
+        data-start="20.7" data-duration="3.8" data-track-index="1" data-track-kind="graphics"
+        data-width="1080" data-height="1920"
+        data-variable-values='{"url":"wolyelec.com/app","cta":"30 jours gratuits"}'></div>
+
+      <!-- Voix off (Kokoro ff_siwis, prononciation corrigée en phonétique : voix.py) : elle donne le tempo des scènes. -->
+      <audio id="vo-hook" src="assets/voice/hook.wav" data-start="0.05" data-duration="3.03" data-volume="1" data-track-index="20"></audio>
+      <audio id="vo-phone" src="assets/voice/phone.wav" data-start="3.50" data-duration="2.88" data-volume="1" data-track-index="20"></audio>
+      <audio id="vo-montant" src="assets/voice/montant.wav" data-start="7.50" data-duration="1.66" data-volume="1" data-track-index="20"></audio>
+      <audio id="vo-tranche" src="assets/voice/tranche.wav" data-start="9.88" data-duration="1.71" data-volume="1" data-track-index="20"></audio>
+      <audio id="vo-plan" src="assets/voice/plan.wav" data-start="11.95" data-duration="1.41" data-volume="1" data-track-index="20"></audio>
+      <audio id="vo-sim" src="assets/voice/sim.wav" data-start="13.85" data-duration="1.26" data-volume="1" data-track-index="20"></audio>
+      <audio id="vo-alertes" src="assets/voice/alertes.wav" data-start="15.70" data-duration="2.86" data-volume="1" data-track-index="20"></audio>
+      <audio id="vo-ia" src="assets/voice/ia.wav" data-start="18.85" data-duration="1.54" data-volume="1" data-track-index="20"></audio>
+      <audio id="vo-fin" src="assets/voice/fin.wav" data-start="20.85" data-duration="3.01" data-volume="1" data-track-index="20"></audio>
+
+      <!-- Musique sous la voix, entrée sur sa partie la plus énergique. -->
+      <audio id="bgm" src="assets/bgm/track.mp3" data-start="0" data-duration="24.5" data-media-start="8.5" data-volume="0.16" data-fade-in="0.3" data-fade-out="1.5" data-track-index="30"></audio>
+
+      <!-- Effets sonores (timing.py) : chaque pic tombe un frame après son image. -->
+      <audio id="sfx-phone" src="assets/sfx/whoosh.mp3" data-start="2.83" data-duration="1.9" data-volume="0.3" data-fade-out="0.3" data-track-index="10"></audio>
+      <audio id="sfx-montant" src="assets/sfx/swoosh.mp3" data-start="6.54" data-duration="1.5" data-volume="0.28" data-fade-out="0.3" data-track-index="11"></audio>
+      <audio id="sfx-tranche" src="assets/sfx/whoosh.mp3" data-start="9.18" data-duration="1.9" data-volume="0.28" data-fade-out="0.3" data-track-index="10"></audio>
+      <audio id="sfx-plan" src="assets/sfx/pop.mp3" data-start="12.38" data-duration="0.45" data-volume="0.5" data-track-index="11"></audio>
+      <audio id="sfx-sim" src="assets/sfx/swoosh.mp3" data-start="12.94" data-duration="1.5" data-volume="0.28" data-fade-out="0.3" data-track-index="10"></audio>
+      <audio id="sfx-alerte1" src="assets/sfx/notification.mp3" data-start="16.07" data-duration="0.6" data-volume="0.4" data-track-index="11"></audio>
+      <audio id="sfx-alerte2" src="assets/sfx/notification.mp3" data-start="16.42" data-duration="0.6" data-volume="0.4" data-track-index="10"></audio>
+      <audio id="sfx-ia" src="assets/sfx/pop.mp3" data-start="18.73" data-duration="0.45" data-volume="0.5" data-track-index="11"></audio>
+      <audio id="sfx-fin" src="assets/sfx/impact.mp3" data-start="20.33" data-duration="2.6" data-volume="0.4" data-fade-out="0.5" data-track-index="10"></audio>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      // Le décor tourne lentement pendant tout le film (4° par seconde).
+      tl.fromTo("#deco-arc", { rotation: -40, svgOrigin: "540 1930" }, { rotation: 86, svgOrigin: "540 1930", duration: 24.5, ease: "none" }, 0);
+      // Flood vert → clair quand l'appli entre, clair → vert pour la fin.
+      tl.fromTo("#ground", { backgroundColor: "#0b3d2e" }, { backgroundColor: "#f3f6f4", duration: 0.4, ease: "power2.inOut" }, 3.4);
+      tl.fromTo("#deco-path", { stroke: "#104836" }, { stroke: "#e3eee8", duration: 0.4, ease: "power2.inOut" }, 3.4);
+      tl.to("#ground", { backgroundColor: "#0b3d2e", duration: 0.45, ease: "power2.inOut" }, 20.7);
+      tl.to("#deco-path", { stroke: "#104836", duration: 0.45, ease: "power2.inOut" }, 20.7);
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

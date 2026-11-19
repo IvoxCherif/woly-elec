@@ -1,0 +1,415 @@
+{
+  "ok": true,
+  "strict": false,
+  "browserSkipped": false,
+  "lint": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 1,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "duplicate_media_discovery_risk",
+        "severity": "warning",
+        "message": "Detected 2 matching img entries with the same source/start/duration.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\bmd\\Documents\\wolyelec\\video\\presentation-mobile\\compositions\\sim.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Avoid duplicated media nodes that can be discovered twice during compilation."
+      }
+    ],
+    "filesScanned": 10
+  },
+  "runtime": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "layout": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 6,
+    "findings": [
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 1.361,
+        "selector": "#deco-arc",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": -179.37,
+          "top": 1210.81,
+          "right": 1176.6,
+          "bottom": 2522.43,
+          "width": 1355.97,
+          "height": 1311.62
+        },
+        "containerSelector": "#deco",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 0,
+          "top": 0,
+          "right": 1080,
+          "bottom": 1920,
+          "width": 1080,
+          "height": 1920
+        },
+        "overflow": {
+          "left": 179.37,
+          "right": 96.6,
+          "bottom": 602.43
+        },
+        "dataAttributes": {
+          "data-svg-origin": "539.9999755996869 1930.0000567118318"
+        },
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": -179.37,
+          "y": 1210.81,
+          "width": 1355.97,
+          "height": 1311.62
+        },
+        "firstSeen": 1.361,
+        "lastSeen": 23.139,
+        "occurrences": 9,
+        "heldMs": 0,
+        "times": [
+          1.361,
+          4.083,
+          6.806,
+          9.528,
+          12.25,
+          14.972,
+          17.694,
+          20.417,
+          23.139
+        ]
+      },
+      {
+        "code": "panel_out_of_canvas",
+        "severity": "info",
+        "time": 6.806,
+        "selector": "#ph-body",
+        "message": "Painted panel extends outside the composition canvas.",
+        "rect": {
+          "left": 93.15,
+          "top": 156,
+          "right": 987.85,
+          "bottom": 1996,
+          "width": 894.7,
+          "height": 1840
+        },
+        "containerSelector": "#root",
+        "text": "",
+        "fixHint": "Move the panel inward, or mark intentional off-canvas animation with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 0,
+          "top": 0,
+          "right": 1080,
+          "bottom": 1920,
+          "width": 1080,
+          "height": 1920
+        },
+        "overflow": {
+          "bottom": 76
+        },
+        "dataAttributes": {},
+        "sourceFile": "compositions/phone.html",
+        "bbox": {
+          "x": 93.15,
+          "y": 156,
+          "width": 894.7,
+          "height": 1840
+        },
+        "firstSeen": 6.806,
+        "lastSeen": 6.806,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          6.806
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 9.528,
+        "selector": "#montant-card > img:nth-of-type(1)",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": 43.8,
+          "top": -365.28,
+          "right": 1141.8,
+          "bottom": 1630.53,
+          "width": 1098,
+          "height": 1995.81
+        },
+        "containerSelector": "#montant-card",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 43.8,
+          "top": 605.84,
+          "right": 1141.8,
+          "bottom": 1404.94,
+          "width": 1098,
+          "height": 799.1
+        },
+        "overflow": {
+          "top": 971.12,
+          "bottom": 225.59
+        },
+        "dataAttributes": {
+          "data-hf-render-id": "hf-media-1",
+          "data-hf-authored-opacity": ""
+        },
+        "sourceFile": "compositions/montant.html",
+        "bbox": {
+          "x": 43.8,
+          "y": -365.28,
+          "width": 1098,
+          "height": 1995.81
+        },
+        "firstSeen": 9.528,
+        "lastSeen": 9.528,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          9.528
+        ]
+      },
+      {
+        "code": "panel_out_of_canvas",
+        "severity": "info",
+        "time": 9.528,
+        "selector": "#montant-card",
+        "message": "Painted panel extends outside the composition canvas.",
+        "rect": {
+          "left": 43.8,
+          "top": 605.84,
+          "right": 1141.8,
+          "bottom": 1404.94,
+          "width": 1098,
+          "height": 799.1
+        },
+        "containerSelector": "#root",
+        "text": "",
+        "fixHint": "Move the panel inward, or mark intentional off-canvas animation with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 0,
+          "top": 0,
+          "right": 1080,
+          "bottom": 1920,
+          "width": 1080,
+          "height": 1920
+        },
+        "overflow": {
+          "right": 61.8
+        },
+        "dataAttributes": {
+          "data-start": "0",
+          "data-duration": "2.4"
+        },
+        "sourceFile": "compositions/montant.html",
+        "bbox": {
+          "x": 43.8,
+          "y": 605.84,
+          "width": 1098,
+          "height": 799.1
+        },
+        "firstSeen": 9.528,
+        "lastSeen": 9.528,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          9.528
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 14.972,
+        "selector": "#sim-input > img:nth-of-type(1)",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": -23.17,
+          "top": 536.81,
+          "right": 1020.29,
+          "bottom": 2148.11,
+          "width": 1043.46,
+          "height": 1611.29
+        },
+        "containerSelector": "#sim-input",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": -23.17,
+          "top": 536.81,
+          "right": 1020.29,
+          "bottom": 863.76,
+          "width": 1043.46,
+          "height": 326.95
+        },
+        "overflow": {
+          "bottom": 1284.35
+        },
+        "dataAttributes": {
+          "data-hf-render-id": "hf-media-5",
+          "data-hf-authored-opacity": ""
+        },
+        "sourceFile": "compositions/sim.html",
+        "bbox": {
+          "x": -23.17,
+          "y": 536.81,
+          "width": 1043.46,
+          "height": 1611.29
+        },
+        "firstSeen": 14.972,
+        "lastSeen": 14.972,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          14.972
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 14.972,
+        "selector": "#sim-res > img:nth-of-type(1)",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": -23.17,
+          "top": 237.69,
+          "right": 1020.29,
+          "bottom": 1848.98,
+          "width": 1043.46,
+          "height": 1611.29
+        },
+        "containerSelector": "#sim-res",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": -23.17,
+          "top": 910.14,
+          "right": 1020.29,
+          "bottom": 1362.3,
+          "width": 1043.46,
+          "height": 452.17
+        },
+        "overflow": {
+          "top": 672.45,
+          "bottom": 486.68
+        },
+        "dataAttributes": {
+          "data-hf-render-id": "hf-media-6",
+          "data-hf-authored-opacity": ""
+        },
+        "sourceFile": "compositions/sim.html",
+        "bbox": {
+          "x": -23.17,
+          "y": 237.69,
+          "width": 1043.46,
+          "height": 1611.29
+        },
+        "firstSeen": 14.972,
+        "lastSeen": 14.972,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          14.972
+        ]
+      }
+    ],
+    "duration": 24.5,
+    "samples": [
+      1.361,
+      4.083,
+      6.806,
+      9.528,
+      12.25,
+      14.972,
+      17.694,
+      20.417,
+      23.139
+    ],
+    "transitionSamples": [],
+    "transitionSamplesDropped": 0,
+    "tolerance": 2,
+    "totalIssueCount": 6,
+    "truncated": false
+  },
+  "motion": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": false,
+    "samples": 0
+  },
+  "contrast": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": true,
+    "samples": [
+      1.361,
+      6.806,
+      12.25,
+      17.694,
+      23.139
+    ],
+    "checked": 27,
+    "passed": 27
+  },
+  "craft": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": true,
+    "step": 0.125,
+    "samples": 196
+  },
+  "audio": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "hdr": {
+    "autoPromotion": null,
+    "inspection": "available"
+  },
+  "snapshots": {
+    "enabled": false,
+    "files": [],
+    "times": [],
+    "findingFiles": []
+  },
+  "saved": {
+    "id": "2dc9aedc-75b3-4167-944b-e04d105ed9ca",
+    "revision": "a51c18e7-176e-4e0e-9d90-c68fcaebe7cb",
+    "report": "C:\\Users\\bmd\\Documents\\wolyelec\\video\\presentation-mobile\\.hyperframes\\artifacts\\checks\\2dc9aedc-75b3-4167-944b-e04d105ed9ca.json",
+    "attribution": "recorded-revision"
+  },
+  "_meta": {
+    "version": "0.9.53",
+    "latestVersion": "0.9.56",
+    "updateAvailable": true,
+    "checkedAt": "2026-11-16T14:32:55.038Z",
+    "skillsOutdated": 2,
+    "skillsMissing": 0
+  }
+}

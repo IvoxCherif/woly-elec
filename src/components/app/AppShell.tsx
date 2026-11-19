@@ -24,6 +24,7 @@ const NAV = [
 ];
 const NAV2 = [
   { href: "/app/abonnement", label: "Abonnement", icon: "card" },
+  { href: "/app/partage", label: "Partage", icon: "users" },
   { href: "/app/profil", label: "Profil", icon: "user" },
   { href: "/app/support", label: "Support", icon: "chat" },
   { href: "/app/installer", label: "Installer l'app", icon: "download" },
@@ -48,6 +49,7 @@ const TITLES: Record<string, string> = {
   "/app/abonnement": "Mon abonnement",
   "/app/abonnement/paiement": "Paiement",
   "/app/profil": "Profil",
+  "/app/partage": "Partage",
   "/app/support": "Support et réclamations",
   "/app/installer": "Installer l'application et activer les notifications",
 };
@@ -71,14 +73,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Jours restants avant la fin de l'abonnement payé (bandeau de renouvellement à 7 jours ou moins)
   const subLeft =
     sub.status === "actif" && !sub.vip && sub.renewsAt ? Math.round((Date.parse(`${sub.renewsAt}T00:00:00`) - new Date(today).setHours(0, 0, 0, 0)) / 86400000) : null;
-  const renewSoon = subLeft !== null && subLeft <= 7 && subLeft >= 0 && !state.pendingPayment && !path.startsWith("/app/abonnement");
+  // Compte partagé : la personne connectée est membre (consulter ou gérer), pas titulaire
+  const access = state.access;
+  const isMember = !!access && access.role !== "titulaire";
+  const canWrite = !access || access.role !== "consulter";
+  const OWNER_ONLY = ["/app/abonnement", "/app/compteurs"];
+  const nav2 = isMember ? NAV2.filter((n) => !OWNER_ONLY.includes(n.href)) : NAV2;
+  const nav1 = isMember ? NAV.filter((n) => !OWNER_ONLY.includes(n.href)) : NAV;
+  const renewSoon = !isMember && subLeft !== null && subLeft <= 7 && subLeft >= 0 && !state.pendingPayment && !path.startsWith("/app/abonnement");
 
   // essai terminé sans abonnement → écran de fin d'essai (sauf pages d'abonnement)
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || isMember) return;
     const expired = sub.status === "expire" || (sub.status === "essai" && left === 0);
     if (expired && !path.startsWith("/app/abonnement") && path !== "/app/fin-essai" && path !== "/app/profil") router.replace("/app/fin-essai");
-  }, [ready, sub.status, left, path, router]);
+  }, [ready, sub.status, left, path, router, isMember]);
+
+  async function switchAccount(id: string) {
+    await fetch("/api/partage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "compte", id }) }).catch(() => undefined);
+    window.location.assign("/app");
+  }
 
   const title = path === "/app" ? `Bonjour ${state.user.name}` : TITLES[path] ?? "Woly Elec";
   const isActive = (href: string) => (href === "/app" ? path === "/app" : path.startsWith(href));
@@ -94,7 +108,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="sp" />
             <span className="only-m"><MenuButton open dark onClick={menu.close} controls="menu-app" /></span>
           </div>
-          {NAV.map((n) => (
+          {access && access.accounts.length > 1 && (
+            <label className="acct-switch">
+              <span className="xs">Compte affiché</span>
+              <select value={access.accountId} onChange={(e) => void switchAccount(e.target.value)} aria-label="Changer de compte">
+                {access.accounts.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {nav1.map((n) => (
             <Link key={n.href} href={n.href} aria-current={isActive(n.href) ? "page" : undefined}>
               <Icon name={n.icon} />
               {n.label}
@@ -106,7 +130,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
           <div className="sep" />
-          {NAV2.map((n) => (
+          {nav2.map((n) => (
             <Link key={n.href} href={n.href} aria-current={isActive(n.href) ? "page" : undefined}>
               <Icon name={n.icon} />
               {n.label}
@@ -114,7 +138,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ))}
           <span style={{ flex: 1 }} />
           <div className="trial" style={{ background: "rgba(255,255,255,.08)", borderRadius: 14, padding: 14, color: "#cfe3d8", fontSize: 14, lineHeight: 1.4 }}>
-            {sub.status === "essai" ? (
+            {isMember ? (
+              <>
+                <b style={{ color: "#FACC15", fontFamily: "Montserrat" }}>Compte partagé</b>
+                <br />
+                {access?.ownerName}
+                <br />
+                <span style={{ fontSize: 13, color: "#9CC4B0" }}>{access?.role === "gerer" ? "Vous pouvez faire les relevés" : "Consultation"}</span>
+              </>
+            ) : sub.status === "essai" ? (
               <>
                 <b style={{ color: "#FACC15", fontFamily: "Montserrat" }}>Essai gratuit</b>
                 <br />
@@ -173,10 +205,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </select>
               </label>
             )}
-            <button type="button" className="btn btn-blue btn-sm hide-m" onClick={openReleve}>
-              <Icon name="plus" size="s" />
-              Nouveau relevé
-            </button>
+            {canWrite && (
+              <button type="button" className="btn btn-blue btn-sm hide-m" onClick={openReleve}>
+                <Icon name="plus" size="s" />
+                Nouveau relevé
+              </button>
+            )}
             <Link href="/app/profil" className="avatar" style={{ background: "var(--g9)", color: "var(--yel)", textDecoration: "none" }} aria-label="Mon profil">
               {state.user.initials}
             </Link>
@@ -190,6 +224,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   Renouvelez-le pour garder vos alertes avant coupure et votre montant exact.
                 </div>
                 <Link className="btn btn-yel btn-sm" href="/app/abonnement/paiement">Renouveler</Link>
+              </div>
+            )}
+            {ready && isMember && (
+              <div className="alert al-info no-print" role="note">
+                <span className="ai"><Icon name="users" size="s" /></span>
+                <div className="fx1">
+                  <b>Compte de {access?.ownerName}</b>
+                  {access?.role === "gerer" ? "Vous pouvez consulter, faire les relevés et enregistrer les recharges." : "Vous pouvez consulter le crédit, le plan et les alertes."}
+                </div>
+                {access && access.accounts.length > 1 && <Link className="btn btn-ghost btn-sm" href="/app/partage">Changer</Link>}
               </div>
             )}
             {ready && mode === "demo" && (
@@ -208,10 +252,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="tabbar no-print" aria-label="Navigation rapide">
           <TabLink t={TABS[0]} active={isActive(TABS[0].href)} />
           <TabLink t={TABS[1]} active={isActive(TABS[1].href)} />
-          <button type="button" className="tb-main" onClick={openReleve} aria-label="Nouveau relevé">
-            <span className="tb-ic"><Icon name="plus" /></span>
-            Relevé
-          </button>
+          {canWrite ? (
+            <button type="button" className="tb-main" onClick={openReleve} aria-label="Nouveau relevé">
+              <span className="tb-ic"><Icon name="plus" /></span>
+              Relevé
+            </button>
+          ) : (
+            <TabLink t={{ href: "/app/partage", label: "Partage", icon: "users" }} active={isActive("/app/partage")} />
+          )}
           <TabLink t={TABS[2]} active={isActive(TABS[2].href)} badge={unread} />
           <button type="button" onClick={menu.toggle} aria-expanded={menu.open} aria-controls="menu-app">
             <span className="tb-ic"><Icon name="menu" /></span>

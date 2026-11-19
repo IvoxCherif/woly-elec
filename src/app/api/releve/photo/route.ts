@@ -1,9 +1,8 @@
-import { and, eq } from "drizzle-orm";
-import { compteurs } from "@/db/schema";
 import { currentClientId } from "@/server/auth";
 import { readMeterPhoto } from "@/server/claude";
 import { json, readJson, withDb } from "@/server/http";
 import { recordIaCall } from "@/server/repo";
+import { meterAccess } from "@/server/partage";
 import { isBlocked, recordFailure } from "@/server/ratelimit";
 
 export const runtime = "nodejs";
@@ -26,8 +25,10 @@ export async function POST(req: Request) {
     const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(body?.image ?? ""));
     if (!m || !body?.meterId) return json({ error: "photo_invalide" }, 400);
     if (m[2].length > 5_000_000) return json({ error: "photo_trop_lourde" }, 413);
-    const [meter] = await db.select({ id: compteurs.id }).from(compteurs).where(and(eq(compteurs.id, body.meterId), eq(compteurs.clientId, clientId)));
-    if (!meter) return json({ error: "compteur_introuvable" }, 404);
+    // Son compteur, ou un compteur partagé avec le droit de faire les relevés
+    const acc = await meterAccess(db, clientId, body.meterId);
+    if (!acc || acc.role === "consulter") return json({ error: "compteur_introuvable" }, 404);
+    const meter = { id: body.meterId };
 
     recordFailure(key, 3600_000); // compte chaque photo envoyée
     const r = await readMeterPhoto(m[2], m[1] as ImageType);

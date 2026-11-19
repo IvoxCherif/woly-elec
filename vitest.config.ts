@@ -9,5 +9,6 @@ export default defineConfig({
       "server-only": path.resolve(__dirname, "src/test/empty.ts"),
     },
   },
-  test: { include: ["src/**/*.test.ts"], testTimeout: 30000 },
+  // Base PGlite créée et migrée dans beforeAll : peut dépasser 10 s quand plusieurs fichiers tournent en parallèle
+  test: { include: ["src/**/*.test.ts"], testTimeout: 30000, hookTimeout: 120000 },
 });

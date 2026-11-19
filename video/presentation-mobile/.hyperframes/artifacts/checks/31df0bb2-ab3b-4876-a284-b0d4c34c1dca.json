@@ -1,0 +1,345 @@
+{
+  "ok": true,
+  "strict": false,
+  "browserSkipped": false,
+  "lint": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 1,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "duplicate_media_discovery_risk",
+        "severity": "warning",
+        "message": "Detected 2 matching img entries with the same source/start/duration.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\bmd\\Documents\\wolyelec\\video\\presentation-mobile\\compositions\\sim.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Avoid duplicated media nodes that can be discovered twice during compilation."
+      }
+    ],
+    "filesScanned": 10
+  },
+  "runtime": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "layout": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 1,
+    "infoCount": 4,
+    "findings": [
+      {
+        "selector": "#sim-title",
+        "dataAttributes": {
+          "data-start": "0",
+          "data-duration": "2.8"
+        },
+        "sourceFile": "compositions/sim.html",
+        "bbox": {
+          "x": 87.32,
+          "y": 294,
+          "width": 703.48,
+          "height": 183.39
+        },
+        "time": 21.389,
+        "rect": {
+          "left": 87.32,
+          "top": 294,
+          "right": 790.8,
+          "bottom": 477.39,
+          "width": 703.48,
+          "height": 183.39
+        },
+        "code": "outside_safe_zone",
+        "severity": "warning",
+        "text": "Simulez avant de payer.",
+        "message": "<h2> \"Simulez avant de payer.\" is outside the safe area: TikTok (left edge).",
+        "fixHint": "Move the text inside the safe area, or mark text meant to sit there with data-layout-allow-safe-zone.",
+        "firstSeen": 21.389,
+        "lastSeen": 21.389,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          21.389
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 1.944,
+        "selector": "#deco-arc",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": -179.09,
+          "top": 1211.09,
+          "right": 1176.55,
+          "bottom": 2522.01,
+          "width": 1355.65,
+          "height": 1310.92
+        },
+        "containerSelector": "#deco",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 0,
+          "top": 0,
+          "right": 1080,
+          "bottom": 1920,
+          "width": 1080,
+          "height": 1920
+        },
+        "overflow": {
+          "left": 179.09,
+          "right": 96.55,
+          "bottom": 602.01
+        },
+        "dataAttributes": {
+          "data-svg-origin": "539.9999755996869 1930.0000567118318"
+        },
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": -179.09,
+          "y": 1211.09,
+          "width": 1355.65,
+          "height": 1310.92
+        },
+        "firstSeen": 1.944,
+        "lastSeen": 33.056,
+        "occurrences": 9,
+        "heldMs": 0,
+        "times": [
+          1.944,
+          5.833,
+          9.722,
+          13.611,
+          17.5,
+          21.389,
+          25.278,
+          29.167,
+          33.056
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 9.722,
+        "selector": "#montant-card > img:nth-of-type(1)",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": 89.86,
+          "top": -184.34,
+          "right": 990.13,
+          "bottom": 1452.05,
+          "width": 900.27,
+          "height": 1636.4
+        },
+        "containerSelector": "#montant-card",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 89.86,
+          "top": 611.9,
+          "right": 990.13,
+          "bottom": 1267.09,
+          "width": 900.27,
+          "height": 655.2
+        },
+        "overflow": {
+          "top": 796.24,
+          "bottom": 184.96
+        },
+        "dataAttributes": {
+          "data-hf-render-id": "hf-media-1",
+          "data-hf-authored-opacity": ""
+        },
+        "sourceFile": "compositions/montant.html",
+        "bbox": {
+          "x": 89.86,
+          "y": -184.34,
+          "width": 900.27,
+          "height": 1636.4
+        },
+        "firstSeen": 9.722,
+        "lastSeen": 9.722,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          9.722
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 21.389,
+        "selector": "#sim-input > img:nth-of-type(1)",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": 47.32,
+          "top": 540,
+          "right": 947.32,
+          "bottom": 1929.77,
+          "width": 900,
+          "height": 1389.77
+        },
+        "containerSelector": "#sim-input",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 47.32,
+          "top": 540,
+          "right": 947.32,
+          "bottom": 822,
+          "width": 900,
+          "height": 282
+        },
+        "overflow": {
+          "bottom": 1107.77
+        },
+        "dataAttributes": {
+          "data-hf-render-id": "hf-media-5",
+          "data-hf-authored-opacity": ""
+        },
+        "sourceFile": "compositions/sim.html",
+        "bbox": {
+          "x": 47.32,
+          "y": 540,
+          "width": 900,
+          "height": 1389.77
+        },
+        "firstSeen": 21.389,
+        "lastSeen": 21.389,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          21.389
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 21.389,
+        "selector": "#sim-res > img:nth-of-type(1)",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": 47.32,
+          "top": 282,
+          "right": 947.32,
+          "bottom": 1671.77,
+          "width": 900,
+          "height": 1389.77
+        },
+        "containerSelector": "#sim-res",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 47.32,
+          "top": 862,
+          "right": 947.32,
+          "bottom": 1252,
+          "width": 900,
+          "height": 390
+        },
+        "overflow": {
+          "top": 580,
+          "bottom": 419.77
+        },
+        "dataAttributes": {
+          "data-hf-render-id": "hf-media-6",
+          "data-hf-authored-opacity": ""
+        },
+        "sourceFile": "compositions/sim.html",
+        "bbox": {
+          "x": 47.32,
+          "y": 282,
+          "width": 900,
+          "height": 1389.77
+        },
+        "firstSeen": 21.389,
+        "lastSeen": 21.389,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          21.389
+        ]
+      }
+    ],
+    "duration": 35,
+    "samples": [
+      1.944,
+      5.833,
+      9.722,
+      13.611,
+      17.5,
+      21.389,
+      25.278,
+      29.167,
+      33.056
+    ],
+    "transitionSamples": [],
+    "transitionSamplesDropped": 0,
+    "tolerance": 2,
+    "totalIssueCount": 5,
+    "truncated": false
+  },
+  "motion": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": false,
+    "samples": 0
+  },
+  "contrast": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": true,
+    "samples": [
+      1.944,
+      9.722,
+      17.5,
+      25.278,
+      33.056
+    ],
+    "checked": 30,
+    "passed": 30
+  },
+  "craft": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": true,
+    "step": 0.125,
+    "samples": 280
+  },
+  "audio": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "hdr": {
+    "autoPromotion": null,
+    "inspection": "available"
+  },
+  "snapshots": {
+    "enabled": false,
+    "files": [],
+    "times": [],
+    "findingFiles": []
+  }
+}

@@ -1,0 +1,42 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; }
+    #plan-stage { position: absolute; inset: 0; }
+    #plan-title {
+      position: absolute; left: 130px; top: 300px; width: 750px;
+      font-family: "Montserrat", sans-serif; font-weight: 800; font-size: 80px;
+      line-height: 1.08; letter-spacing: -0.02em; color: #0b3d2e;
+    }
+    #plan-cam { position: absolute; inset: 0; }
+    #plan-title .w { display: inline-block; }
+    #plan-title .acc { color: #1d4ed8; }
+    .plan-card {
+      position: absolute; left: 50%; overflow: hidden; border-radius: 36px; background: #fff;
+      box-shadow: 0 24px 48px rgba(11, 61, 46, 0.14);
+    }
+    .plan-card img { display: block; }
+
+  </style>
+  <div id="root" data-composition-id="plan" data-width="1080" data-height="1920">
+    <div id="plan-stage">
+      <h2 id="plan-title" class="clip" data-start="0" data-duration="1.9"><span class="w">Le</span> <span class="w acc">meilleur</span> <span class="w acc">jour</span> <span class="w">pour</span> <span class="w">recharger.</span></h2>
+      <div id="plan-cam">
+      <div id="plan-card" class="plan-card clip" data-start="0" data-duration="1.9" style="top:540px;width:960px;height:422px;margin-left:-480px;">
+        <img src="assets/app/plan.png" alt="Plan du mois" style="width:960px;margin-top:0px" />
+      </div>
+      <div id="plan-rappel" class="plan-card clip" data-start="0" data-duration="1.9" style="top:990px;width:960px;height:225px;margin-left:-480px;">
+        <img src="assets/app/rappel.png" alt="Rappel de recharge" style="width:960px;margin-top:0px" />
+      </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#plan-stage", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 0);
+    tl.fromTo("#plan-title .w", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.12, stagger: 0.05, ease: "power4.out" }, 0.12);
+    tl.fromTo("#plan-rappel", { x: -140, opacity: 0, filter: "blur(10px)" }, { x: 0, opacity: 1, filter: "blur(0px)", duration: 0.35, ease: "expo.out" }, 0.5);
+    tl.fromTo("#plan-cam", { scale: 1 }, { scale: 1.12, transformOrigin: "540px 730px", duration: 0.35, ease: "power2.inOut" }, 1.0);
+    tl.to("#plan-stage", { y: -760, filter: "blur(18px)", duration: 0.2, ease: "power3.in" }, 1.7);
+    window.__timelines["plan"] = tl;
+  </script>
+</template>

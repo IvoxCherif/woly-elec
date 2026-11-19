@@ -1,0 +1,72 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    #ph-title {
+      position: absolute;
+      left: 130px;
+      top: 300px;
+      width: 750px;
+      font-family: "Montserrat", sans-serif;
+      font-weight: 800;
+      font-size: 80px;
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      color: #0b3d2e;
+    }
+    #ph-title .w {
+      display: inline-block;
+    }
+    #ph-title .acc {
+      color: #1d4ed8;
+    }
+    #ph-cam {
+      position: absolute;
+      left: 346px;
+      top: 520px;
+      width: 389px;
+      height: 800px;
+      transform-origin: 50% 35%;
+    }
+    #ph-body {
+      position: absolute;
+      inset: 0;
+      background: #0f1a16;
+      border-radius: 60px;
+      padding: 18px;
+      box-shadow: 0 30px 60px rgba(11, 61, 46, 0.22);
+    }
+    #ph-screen {
+      display: block;
+      width: 353px;
+      height: 764px;
+      border-radius: 44px;
+    }
+  </style>
+  <div id="root" data-composition-id="phone" data-width="1080" data-height="1920">
+    <h2 id="ph-title" class="clip" data-start="0" data-duration="4">
+      <span class="w">Votre</span> <span class="w acc">crédit,</span> <span class="w">en</span> <span class="w">jours.</span>
+    </h2>
+    <div id="ph-cam" class="clip" data-start="0" data-duration="4">
+      <div id="ph-body">
+        <img id="ph-screen" src="assets/app/screen.png" alt="Tableau de bord Woly Elec" />
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    // Le téléphone monte pendant que le sol passe au clair.
+    tl.fromTo("#ph-body", { y: 1100 }, { y: 0, duration: 0.55, ease: "expo.out" }, 0);
+    tl.fromTo("#ph-title .w", { opacity: 0, filter: "blur(6px)" },
+      { opacity: 1, filter: "blur(0px)", duration: 0.12, stagger: 0.05, ease: "power4.out" }, 0.2);
+    // Le titre part, la caméra s'approche de la jauge.
+    tl.to("#ph-title", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power3.in" }, 1.95);
+    tl.fromTo("#ph-cam", { scale: 1 }, { scale: 2.3, duration: 0.45, ease: "power2.inOut" }, 2.0);
+    // Zoom à travers vers la scène suivante.
+    tl.to("#ph-cam", { scale: 4.2, duration: 0.3, ease: "power3.in" }, 3.7);
+    tl.to("#ph-body", { opacity: 0, filter: "blur(14px)", duration: 0.3, ease: "power3.in" }, 3.7);
+    window.__timelines["phone"] = tl;
+  </script>
+</template>

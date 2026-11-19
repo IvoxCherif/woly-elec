@@ -28,6 +28,10 @@ const ERRORS: Record<string, string> = {
   non_connecte: "Votre session a expiré : reconnectez-vous.",
   telephone_invalide: "Numéro invalide : 9 chiffres, par exemple 77 123 45 67.",
   telephone_deja_utilise: "Ce numéro est déjà utilisé par un autre compte.",
+  acces_lecture: "Vous pouvez consulter ce compte, pas le modifier.",
+  acces_titulaire: "Action réservée au titulaire du compte.",
+  acces_compteur: "Ce compteur ne vous est pas partagé.",
+  aucun_acces: "Vous n'avez plus accès à ce compte.",
   compteur_deja_utilise: "Ce compteur est déjà enregistré sur Woly Elec : vérifiez le numéro.",
   compteur_invalide: "Numéro de compteur invalide (8 chiffres au moins).",
 };
@@ -94,6 +98,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const r = await fetch("/api/me", { cache: "no-store" });
+        // Connecté mais sans compte accessible (accès partagé retiré) : page dédiée
+        if (r.status === 403) {
+          window.location.replace("/sans-acces");
+          return;
+        }
         if (r.ok) {
           const s = (await r.json()) as State;
           if (!cancelled) {

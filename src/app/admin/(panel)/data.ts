@@ -26,7 +26,7 @@ export const ALERT_LOG: AlertLog[] = [
   { time: "Hier 18:42", user: "Mme Faye", type: "Recharge enregistrée", channel: "WhatsApp", status: "Remis" },
 ];
 
-export type AdminRow = { id: string; name: string; phone: string; email?: string; method?: string; vip?: boolean; quotaIa?: number | null; push?: number; meters: number; readings: number; pack: string; status: string; expires: string; monthly: number; createdAt: string; lastSeen: string };
+export type AdminRow = { id: string; name: string; phone: string; email?: string; method?: string; vip?: boolean; quotaIa?: number | null; push?: number; membres?: number; accesPartages?: number; meters: number; readings: number; pack: string; status: string; expires: string; monthly: number; createdAt: string; lastSeen: string };
 
 export const sampleUsers = (): AdminRow[] =>
   USERS.map((u) => ({ id: u.id, name: u.name, phone: u.phone, meters: u.meters, readings: u.readings, pack: u.pack, status: u.status, expires: u.expires, monthly: 0, createdAt: "", lastSeen: u.lastSeen }));

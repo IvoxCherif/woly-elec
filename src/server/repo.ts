@@ -103,12 +103,12 @@ export async function recordIaCall(db: DB, v: { clientId: string; meterId: strin
 
 // ——— État complet du compte client (même forme que le mode démo) ———
 
-export async function buildState(db: DB, clientId: string, today = todayLocal()): Promise<State | null> {
+export async function buildState(db: DB, clientId: string, today = todayLocal(), opts: { touch?: boolean } = {}): Promise<State | null> {
   const [c] = await db.select().from(t.clients).where(eq(t.clients.id, clientId));
   if (!c) return null;
   const tariff = await loadActiveTariff(db);
   const todayIso = isoDate(today);
-  await db.update(t.clients).set({ lastSeenAt: new Date() }).where(eq(t.clients.id, clientId));
+  if (opts.touch !== false) await db.update(t.clients).set({ lastSeenAt: new Date() }).where(eq(t.clients.id, clientId));
 
   let [sub] = await db.select().from(t.abonnements).where(eq(t.abonnements.clientId, clientId));
   if (sub && ((sub.statut === "essai" && sub.essaiFin < todayIso) || (sub.statut === "actif" && sub.renouvellement && sub.renouvellement < todayIso))) {
@@ -135,21 +135,7 @@ export async function buildState(db: DB, clientId: string, today = todayLocal())
   const pending = allPayments.find((p) => p.statut === "en_attente" && p.createdAt > addDays(new Date(), -1));
 
   const iaQuota = c.quotaIa ?? (await globalIaQuota(db));
-  const user: User = {
-    name: c.nom || "Client Woly Elec",
-    initials: initialsOf(c.nom),
-    phone: formatPhone(c.telephone),
-    email: c.email ?? "",
-    lang: c.langue === "Wolof" ? "Wolof" : "Français",
-    channels: c.canaux,
-    relances: c.relances,
-    rechargeDay: c.jourRecharge,
-    objective: (OBJECTIVES.includes(c.objectif as Objective) ? c.objectif : "mois") as Objective,
-    household: c.foyer,
-    budget: c.budget,
-    consent: c.consentement,
-  };
-
+  const user = userOf(c);
   return {
     version: 1,
     mode: "server",
@@ -186,6 +172,25 @@ export async function buildState(db: DB, clientId: string, today = todayLocal())
     paymentMode: payMode,
     pendingPayment: pending ? { reference: pending.reference, amount: pending.montant, label: pending.libelle } : undefined,
     chat: chat.reverse().map((m) => ({ role: m.role === "u" ? "u" : "a", text: m.texte })),
+  };
+}
+
+
+/** Profil affiché : nom, contact, préférences de notification (toujours ceux de la personne connectée). */
+export function userOf(c: typeof t.clients.$inferSelect): User {
+  return {
+    name: c.nom || "Client Woly Elec",
+    initials: initialsOf(c.nom),
+    phone: formatPhone(c.telephone),
+    email: c.email ?? "",
+    lang: c.langue === "Wolof" ? "Wolof" : "Français",
+    channels: c.canaux,
+    relances: c.relances,
+    rechargeDay: c.jourRecharge,
+    objective: (OBJECTIVES.includes(c.objectif as Objective) ? c.objectif : "mois") as Objective,
+    household: c.foyer,
+    budget: c.budget,
+    consent: c.consentement,
   };
 }
 
@@ -335,6 +340,13 @@ async function maybeAlert(db: DB, clientId: string, meterId: string) {
     if (!pushed) {
       canal = "email";
       statut = sent ? "remis" : "echec";
+    }
+  }
+  // Membres invités sur ce compteur : même alerte sur leur téléphone (selon leur propre choix de notifications)
+  const members = await db.select().from(t.partages).where(and(eq(t.partages.proprietaireId, clientId), eq(t.partages.statut, "actif")));
+  for (const p of members) {
+    if (p.membreId && (p.compteurIds === null || p.compteurIds.includes(meterId))) {
+      await sendPush(db, p.membreId, { title: `${titre} · ${s.meter.name}`, body: message, url: "/app/plan", tag: `alerte-${meterId}` });
     }
   }
   await db.insert(t.alertes).values({
@@ -688,6 +700,8 @@ export async function adminUsers(db: DB) {
       vip: t.clients.vip,
       quotaIa: t.clients.quotaIa,
       telephonesPush: sql<number>`(select count(*)::int from ${t.pushAbonnements} where ${t.pushAbonnements.clientId} = ${t.clients.id})`,
+      membres: sql<number>`(select count(*)::int from ${t.partages} where ${t.partages.proprietaireId} = ${t.clients.id} and ${t.partages.statut} = 'actif')`,
+      accesPartages: sql<number>`(select count(*)::int from ${t.partages} where ${t.partages.membreId} = ${t.clients.id} and ${t.partages.statut} = 'actif')`,
       createdAt: t.clients.createdAt,
       lastSeenAt: t.clients.lastSeenAt,
       offre: t.abonnements.offre,
@@ -717,6 +731,8 @@ export async function adminUsers(db: DB) {
       vip: r.vip,
       quotaIa: r.quotaIa,
       push: Number(r.telephonesPush),
+      membres: Number(r.membres),
+      accesPartages: Number(r.accesPartages),
       expires: (r.statut === "essai" ? r.essaiFin : r.renouvellement) ?? "—",
       monthly: !r.vip && r.statut === "actif" ? monthlyPrice(pack, Math.max(1, meters)) : 0,
       createdAt: isoDate(r.createdAt),

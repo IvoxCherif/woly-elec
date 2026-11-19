@@ -145,3 +145,18 @@ export function renewalMail(v: { kind: "essai" | "abonnement"; days: number; end
     html: layout(title, `${p(intro)}${p(esc(price))}${button(`${SITE}/app/abonnement/paiement`, v.days <= 0 ? "Me réabonner" : "Renouveler mon abonnement")}`),
   };
 }
+
+/** Invitation à suivre le compte d'un client (partage). */
+export function invitationMail(ownerName: string, role: "consulter" | "gerer", compteurs: string, url: string): Omit<Mail, "to"> {
+  const who = ownerName || "Un client Woly Elec";
+  const what =
+    role === "gerer"
+      ? "voir le crédit restant, recevoir les alertes avant coupure, et faire les relevés et les recharges"
+      : "voir le crédit restant et recevoir les alertes avant coupure";
+  const intro = `${who} vous invite à suivre son électricité sur Woly Elec (${compteurs}) : vous pourrez ${what}.`;
+  return {
+    subject: `${who} vous invite sur Woly Elec`,
+    html: layout("Vous êtes invité sur Woly Elec", `${p(esc(intro))}${button(url, "Accepter l'invitation")}${p("Cette invitation est valable 7 jours. Vous gardez votre propre mot de passe : vos identifiants ne sont jamais partagés. Si vous ne connaissez pas cette personne, ignorez cet e-mail.")}`),
+    text: `${intro}\n\nAccepter l'invitation : ${url}\n\nCette invitation est valable 7 jours.\n\nWoly Elec — ${SUPPORT_EMAIL}`,
+  };
+}

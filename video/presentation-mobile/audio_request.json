@@ -1,0 +1,72 @@
+{
+  "provider": "heygen",
+  "voice": "a16396d04fab4cc2a72cfc8046efa7f3",
+  "lang": "fr",
+  "speed": 1.0,
+  "lines": [
+    {
+      "id": "hook",
+      "text": "Votre crédit Woyofal tiendra-t-il jusqu'à la fin du mois ?"
+    },
+    {
+      "id": "phone",
+      "text": "Avec Woly Elec, vous voyez votre crédit restant, en jours, d'un coup d'œil.",
+      "sfx": [
+        "whoosh"
+      ]
+    },
+    {
+      "id": "montant",
+      "text": "L'appli vous dit combien recharger pour finir le mois.",
+      "sfx": [
+        "swoosh"
+      ]
+    },
+    {
+      "id": "tranche",
+      "text": "Et vous aide à rester en tranche un, au meilleur prix.",
+      "sfx": [
+        "whoosh"
+      ]
+    },
+    {
+      "id": "plan",
+      "text": "Elle vous donne le meilleur jour pour recharger.",
+      "sfx": [
+        "pop"
+      ]
+    },
+    {
+      "id": "sim",
+      "text": "Simulez un montant avant de payer.",
+      "sfx": [
+        "swoosh"
+      ]
+    },
+    {
+      "id": "alertes",
+      "text": "Et soyez prévenu avant la coupure, par WhatsApp, SMS ou e-mail.",
+      "sfx": [
+        "notification"
+      ]
+    },
+    {
+      "id": "ia",
+      "text": "Son IA vous explique même votre mois.",
+      "sfx": [
+        "pop"
+      ]
+    },
+    {
+      "id": "fin",
+      "text": "Woly Elec. Trente jours gratuits, sur wolyelec point com, slash app.",
+      "sfx": [
+        "impact"
+      ]
+    }
+  ],
+  "bgm": {
+    "mode": "retrieve",
+    "query": "light optimistic african pop pulse, warm, modern, 110 bpm, bright synth"
+  }
+}

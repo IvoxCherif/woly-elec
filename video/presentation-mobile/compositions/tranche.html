@@ -1,0 +1,38 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; }
+    #tranche-stage { position: absolute; inset: 0; }
+    #tranche-title {
+      position: absolute; left: 130px; top: 300px; width: 750px;
+      font-family: "Montserrat", sans-serif; font-weight: 800; font-size: 80px;
+      line-height: 1.08; letter-spacing: -0.02em; color: #0b3d2e;
+    }
+    #tranche-cam { position: absolute; inset: 0; }
+    #tranche-title .w { display: inline-block; }
+    #tranche-title .acc { color: #1d4ed8; }
+    .tranche-card {
+      position: absolute; left: 50%; overflow: hidden; border-radius: 36px; background: #fff;
+      box-shadow: 0 24px 48px rgba(11, 61, 46, 0.14);
+    }
+    .tranche-card img { display: block; }
+
+  </style>
+  <div id="root" data-composition-id="tranche" data-width="1080" data-height="1920">
+    <div id="tranche-stage">
+      <h2 id="tranche-title" class="clip" data-start="0" data-duration="2.1"><span class="w">Restez</span> <span class="w">en</span> <span class="w acc">tranche 1.</span></h2>
+      <div id="tranche-cam">
+      <div id="tranche-card" class="tranche-card clip" data-start="0" data-duration="2.1" style="top:580px;width:960px;height:570px;margin-left:-480px;">
+        <img src="assets/app/tranche.png" alt="Tranche actuelle" style="width:960px;margin-top:0px" />
+      </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#tranche-stage", { y: 760, filter: "blur(18px)" }, { y: 0, filter: "blur(0px)", duration: 0.34, ease: "expo.out" }, 0);
+    tl.fromTo("#tranche-title .w", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.12, stagger: 0.05, ease: "power4.out" }, 0.12);
+    tl.fromTo("#tranche-cam", { scale: 1 }, { scale: 1.15, transformOrigin: "540px 840px", duration: 0.35, ease: "power2.inOut" }, 0.85);
+    tl.to("#tranche-stage", { opacity: 0, filter: "blur(10px)", duration: 0.18, ease: "power3.in" }, 1.92);
+    window.__timelines["tranche"] = tl;
+  </script>
+</template>

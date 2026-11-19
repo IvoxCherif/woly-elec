@@ -1,0 +1,38 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; }
+    #montant-stage { position: absolute; inset: 0; }
+    #montant-title {
+      position: absolute; left: 130px; top: 300px; width: 750px;
+      font-family: "Montserrat", sans-serif; font-weight: 800; font-size: 80px;
+      line-height: 1.08; letter-spacing: -0.02em; color: #0b3d2e;
+    }
+    #montant-cam { position: absolute; inset: 0; }
+    #montant-title .w { display: inline-block; }
+    #montant-title .acc { color: #1d4ed8; }
+    .montant-card {
+      position: absolute; left: 50%; overflow: hidden; border-radius: 36px; background: #fff;
+      box-shadow: 0 24px 48px rgba(11, 61, 46, 0.14);
+    }
+    .montant-card img { display: block; }
+
+  </style>
+  <div id="root" data-composition-id="montant" data-width="1080" data-height="1920">
+    <div id="montant-stage">
+      <h2 id="montant-title" class="clip" data-start="0" data-duration="2.4"><span class="w acc">Combien</span> <span class="w">recharger</span> <span class="w">pour</span> <span class="w">finir</span> <span class="w">le</span> <span class="w">mois</span> <span class="w">?</span></h2>
+      <div id="montant-cam">
+      <div id="montant-card" class="montant-card clip" data-start="0" data-duration="2.4" style="top:612px;width:900px;height:655px;margin-left:-450px;">
+        <img src="assets/app/gauge.png" alt="Montant à recharger" style="width:900px;margin-top:-796px" />
+      </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#montant-stage", { scale: 1.35, opacity: 0, filter: "blur(14px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.38, ease: "expo.out" }, 0);
+    tl.fromTo("#montant-title .w", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.12, stagger: 0.05, ease: "power4.out" }, 0.12);
+    tl.fromTo("#montant-cam", { scale: 1 }, { scale: 1.22, transformOrigin: "300px 640px", duration: 0.35, ease: "power2.inOut" }, 1.0);
+    tl.to("#montant-stage", { y: -760, filter: "blur(18px)", duration: 0.2, ease: "power3.in" }, 2.2);
+    window.__timelines["montant"] = tl;
+  </script>
+</template>

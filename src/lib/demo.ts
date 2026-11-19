@@ -101,6 +101,17 @@ export type State = {
   /** Paiement en ligne lancé mais pas encore confirmé par SasPay */
   pendingPayment?: { reference: string; amount: number; label: string };
   chat: ChatMsg[];
+  /** Compte partagé : rôle de la personne connectée et comptes auxquels elle a accès */
+  access?: Access;
+};
+
+export type AccessRole = "titulaire" | "gerer" | "consulter";
+export type Access = {
+  role: AccessRole;
+  /** compte affiché (titulaire) */
+  accountId: string;
+  ownerName?: string;
+  accounts: { id: string; name: string; role: AccessRole }[];
 };
 
 export type Scenario = "essai" | "proprietaire" | "fin-essai";

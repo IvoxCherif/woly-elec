@@ -115,7 +115,7 @@ export default function Utilisateurs() {
             {list.length === 0 && <tr><td colSpan={12} style={{ textAlign: "center", color: "var(--mut)", padding: 28 }}>{live === null ? "Chargement…" : "Aucun utilisateur."}</td></tr>}
             {list.map((u) => (
               <tr key={u.id}>
-                <td><b>{u.name}</b></td><td>{u.email ?? "—"}</td><td>{u.method ?? "—"}</td><td>{u.phone}</td><td className="n">{u.meters}</td><td className="n">{u.readings}</td>
+                <td><b>{u.name}</b>{u.membres ? <div className="xs mut">Partage : {u.membres} membre{u.membres > 1 ? "s" : ""}</div> : null}{u.accesPartages ? <div className="xs mut">Membre de {u.accesPartages} compte{u.accesPartages > 1 ? "s" : ""}</div> : null}</td><td>{u.email ?? "—"}</td><td>{u.method ?? "—"}</td><td>{u.phone}</td><td className="n">{u.meters}</td><td className="n">{u.readings}</td>
                 <td><span className={`badge ${u.vip ? "b-ia" : u.status === "Actif" ? "b-ok" : u.status === "Essai" ? "b-trial" : "b-risk"}`}>{u.pack}</span></td>
                 <td><VipToggle u={u} live={live} onDone={done} /></td>
                 <td><QuotaCell u={u} live={live} onDone={done} /></td>
