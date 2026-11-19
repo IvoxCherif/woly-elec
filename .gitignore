@@ -6,3 +6,8 @@ next-env.d.ts
 .env*.local
 .DS_Store
 .pglite
+
+# Outils et projets vidéo locaux (hors du site)
+/video/
+/.agents/
+/.claude/skills/

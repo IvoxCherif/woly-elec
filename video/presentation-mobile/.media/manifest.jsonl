@@ -1,6 +1,0 @@
-{"id":"sfx_001","type":"sfx","path":"assets/sfx/whoosh.mp3","source":"search","description":"whoosh","duration":3.2,"provenance":{"provider":"openverse.audio","prompt":"whoosh"}}
-{"id":"sfx_002","type":"sfx","path":"assets/sfx/swoosh.mp3","source":"search","description":"swoosh","duration":4.6,"provenance":{"provider":"openverse.audio","prompt":"swoosh"}}
-{"id":"sfx_003","type":"sfx","path":"assets/sfx/pop.mp3","source":"search","description":"pop","duration":0.5,"provenance":{"provider":"openverse.audio","prompt":"pop"}}
-{"id":"sfx_004","type":"sfx","path":"assets/sfx/notification.mp3","source":"search","description":"notification","duration":0.7,"provenance":{"provider":"openverse.audio","prompt":"notification"}}
-{"id":"sfx_005","type":"sfx","path":"assets/sfx/impact.mp3","source":"search","description":"impact","duration":2.6,"provenance":{"provider":"openverse.audio","prompt":"impact"}}
-{"id":"bgm_001","type":"bgm","path":"assets/bgm/track.mp3","source":"search","description":"light optimistic african pop pulse, warm, modern, 110 bpm, bright synth","duration":53,"provenance":{"provider":"heygen","prompt":"light optimistic african pop pulse, warm, modern, 110 bpm, bright synth"}}
