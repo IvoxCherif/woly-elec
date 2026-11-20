@@ -51,6 +51,8 @@ const TITLES: Record<string, string> = {
   "/app/abonnement/paiement": "Paiement",
   "/app/profil": "Profil",
   "/app/partage": "Partage",
+  "/app/recharger": "Recharger mon compteur",
+  "/app/recharger/retour": "Ma recharge",
   "/app/support": "Support et réclamations",
   "/app/installer": "Installer l'application et activer les notifications",
 };
@@ -80,7 +82,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const canWrite = !access || access.role !== "consulter";
   const OWNER_ONLY = ["/app/abonnement", "/app/compteurs"];
   const nav2 = isMember ? NAV2.filter((n) => !OWNER_ONLY.includes(n.href)) : NAV2;
-  const nav1 = isMember ? NAV.filter((n) => !OWNER_ONLY.includes(n.href)) : NAV;
+  const nav1base = isMember ? NAV.filter((n) => !OWNER_ONLY.includes(n.href)) : NAV;
+  // « Recharger » n'apparaît que si l'administrateur a activé la vente de recharges
+  const nav1 = state.rechargeEnLigne && canWrite ? [nav1base[0], { href: "/app/recharger", label: "Recharger", icon: "bolt" }, ...nav1base.slice(1)] : nav1base;
   const renewSoon = !isMember && subLeft !== null && subLeft <= 7 && subLeft >= 0 && !state.pendingPayment && !path.startsWith("/app/abonnement");
 
   // essai terminé sans abonnement → écran de fin d'essai (sauf pages d'abonnement)

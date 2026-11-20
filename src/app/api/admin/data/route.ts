@@ -6,6 +6,8 @@ import { CLAUDE_MODEL, claudeKeyStatus } from "@/server/claude";
 import { paymentMode, saspayConfig, saveSaspayConfig, testKey } from "@/server/saspay";
 import { publicOrigin } from "@/server/ratelimit";
 import { sendPush } from "@/server/push";
+import { dexpayConfig, inquiryMeter, saveDexpayConfig, testDexpayKey } from "@/server/dexpay";
+import { adminPurchaseAction, adminPurchases } from "@/server/recharge";
 
 export const runtime = "nodejs";
 
@@ -45,6 +47,21 @@ export async function GET(req: Request) {
         const actifs = url.searchParams.get("actifs") === "1";
         return json({ tirages: await lotteryHistory(db), participants: await lotteryParticipants(db, { exclureGagnants: exclure, actifsSeulement: actifs }) });
       }
+      case "recharges": {
+        const c = await dexpayConfig(db);
+        return json({
+          actif: c.enabled,
+          sandbox: c.sandbox,
+          cle: c.preview,
+          cleStatut: c.key ? await testDexpayKey(c) : "absente",
+          webhook: !!c.webhookSecret,
+          webhookUrl: `${publicOrigin(req)}/api/recharge/webhook`,
+          fraisPct: c.fraisPct,
+          fraisFixe: c.fraisFixe,
+          paiement: await paymentMode(db),
+          achats: await adminPurchases(db),
+        });
+      }
       case "ia":
         return json({ ...(await adminIa(db)), modele: CLAUDE_MODEL, cle: await claudeKeyStatus() });
       default:
@@ -57,7 +74,25 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!(await isAdmin())) return json({ error: "non_autorise" }, 401);
   return withDb(async (db) => {
-    const body = await readJson<{ type: string; config?: TariffJson; version?: string; id?: string | number; texte?: string; statut?: string; vip?: boolean; exclure?: boolean; actifs?: boolean; montant?: number; moisOffert?: boolean; valeur?: number | null; cle?: string; webhook?: string; actif?: boolean }>(req);
+    const body = await readJson<{ type: string; config?: TariffJson; version?: string; id?: string | number; texte?: string; statut?: string; vip?: boolean; exclure?: boolean; actifs?: boolean; montant?: number; moisOffert?: boolean; sandbox?: boolean; fraisPct?: number; fraisFixe?: number; reference?: string; action?: string; numero?: string; valeur?: number | null; cle?: string; webhook?: string; actif?: boolean }>(req);
+    if (body?.type === "dexpay") {
+      try {
+        await saveDexpayConfig(db, { cle: body.cle, webhook: body.webhook, actif: body.actif, sandbox: body.sandbox, fraisPct: body.fraisPct, fraisFixe: body.fraisFixe });
+      } catch (e) {
+        const m = (e as Error).message;
+        return json({ error: ["cle_invalide", "webhook_invalide", "frais_invalides"].includes(m) ? m : "enregistrement_impossible" }, 400);
+      }
+      return json({ ok: true });
+    }
+    if (body?.type === "dexpay_verifier" && body.numero) {
+      // Consultation d'un compteur chez Senelec via DexPay, sans aucun débit (test de la configuration)
+      try {
+        const info = await inquiryMeter(await dexpayConfig(db), String(body.numero));
+        return json(info ? { ok: true, ...info } : { error: "compteur_inconnu_senelec" }, info ? 200 : 404);
+      } catch {
+        return json({ error: "verification_impossible" }, 503);
+      }
+    }
     if (body?.type === "saspay") {
       try {
         await saveSaspayConfig(db, { cle: body.cle, webhook: body.webhook, actif: body.actif });
@@ -74,6 +109,10 @@ export async function POST(req: Request) {
       }
       if (body?.type === "loterie_statut" && body.id !== undefined && (body.statut === "recharge" || body.statut === "annule")) {
         await setLotteryStatus(db, Number(body.id), body.statut, { montant: typeof body.montant === "number" ? body.montant : undefined, moisOffert: body.moisOffert === true });
+        return json({ ok: true });
+      }
+      if (body?.type === "recharge_action" && body.reference && (body.action === "relancer" || body.action === "rembourse")) {
+        await adminPurchaseAction(db, String(body.reference), body.action, publicOrigin(req));
         return json({ ok: true });
       }
       if (body?.type === "ia_quota" && typeof body.valeur === "number") {

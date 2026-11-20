@@ -17,6 +17,7 @@ const NAV = [
   { href: "/admin/paiement", label: "Paiement en ligne", icon: "wallet", title: "Paiement en ligne · SasPay" },
   { href: "/admin/tarifs", label: "Table de tarifs", icon: "calc", title: "Table de tarifs" },
   { href: "/admin/messages", label: "Modèles de messages", icon: "chat", title: "Modèles de messages" },
+  { href: "/admin/recharges", label: "Recharges Woyofal", icon: "bolt", title: "Recharges Woyofal · vente dans l'application" },
   { href: "/admin/loterie", label: "Loterie", icon: "gift", title: "Loterie · un mois d'électricité offert" },
   { href: "/admin/alertes", label: "Journal des alertes", icon: "bell", title: "Journal des alertes" },
   { href: "/admin/ia", label: "Assistant IA", icon: "sparkle", title: "Assistant IA · consommation Claude" },

@@ -103,6 +103,8 @@ export type State = {
   chat: ChatMsg[];
   /** Compte partagé : rôle de la personne connectée et comptes auxquels elle a accès */
   access?: Access;
+  /** Vente de recharges Woyofal dans l'application (activée par l'administrateur) : frais de service */
+  rechargeEnLigne?: { fraisPct: number; fraisFixe: number };
 };
 
 export type AccessRole = "titulaire" | "gerer" | "consulter";

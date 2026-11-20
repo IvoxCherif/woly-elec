@@ -58,7 +58,11 @@ export default function Dashboard() {
               </span>
               <span className="xs mut">{p.minAmount > 0 ? `Minimum · recommandé ${fcfa(p.recommendedAmount)}` : "Votre crédit couvre le mois"}</span>
             </div>
-            <Link className={`btn ${p.level === "risk" ? "btn-red" : "btn-blue"} btn-blk`} href="/app/plan">
+            <Link
+              className={`btn ${p.level === "risk" ? "btn-red" : "btn-blue"} btn-blk`}
+              // Vente de recharges activée par l'administrateur : achat direct du montant conseillé
+              href={state.rechargeEnLigne && state.access?.role !== "consulter" ? `/app/recharger${p.recommendedAmount > 0 ? `?montant=${Math.ceil(p.recommendedAmount / 500) * 500}` : ""}` : "/app/plan"}
+            >
               Recharger maintenant
             </Link>
             <button type="button" className="btn btn-line btn-blk btn-sm" onClick={openRecharge}>

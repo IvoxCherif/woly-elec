@@ -3,6 +3,8 @@ import { json } from "@/server/http";
 import { reconcile } from "@/server/payment";
 import { pendingPayments } from "@/server/repo";
 import { saspayConfig, verifyWebhook } from "@/server/saspay";
+import { reconcilePendingPurchases } from "@/server/recharge";
+import { publicOrigin } from "@/server/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -37,6 +39,8 @@ export async function POST(req: Request) {
     // SasPay attend une réponse en moins de 15 s : quelques vérifications suffisent (les plus récentes d'abord)
     const pending = await pendingPayments(db);
     for (const p of pending.slice(0, 10)) await reconcile(db, key, p);
+    // Recharges Woyofal achetées dans l'application : paiement confirmé → achat chez DexPay
+    await reconcilePendingPurchases(db, publicOrigin(req), 5);
   }
   return json({ ok: true });
 }

@@ -12,6 +12,7 @@ import { alertMail, mailEnabled, renewalMail, sendMail } from "./mail";
 import { annualPrice, IA_QUOTA_PER_METER, monthlyPrice, PACKS, PAYMENT_METHODS, TRIAL_DAYS, type Pack } from "@/lib/pricing";
 import { computeStats } from "@/lib/stats";
 import { paymentMode } from "./saspay";
+import { dexpayConfig } from "./dexpay";
 import { sendAdminPush, sendPush } from "./push";
 import { TEMPLATES } from "@/lib/templates";
 
@@ -136,6 +137,8 @@ export async function buildState(db: DB, clientId: string, today = todayLocal(),
 
   const iaQuota = c.quotaIa ?? (await globalIaQuota(db));
   const user = userOf(c);
+  const dex = await dexpayConfig(db);
+  const rechargeEnLigne = dex.enabled && dex.key && payMode === "saspay" ? { fraisPct: dex.fraisPct, fraisFixe: dex.fraisFixe } : undefined;
   return {
     version: 1,
     mode: "server",
@@ -170,6 +173,7 @@ export async function buildState(db: DB, clientId: string, today = todayLocal(),
     iaUsed: Object.fromEntries(usage.map((u) => [u.compteurId, u.requetes])),
     iaQuota,
     paymentMode: payMode,
+    rechargeEnLigne,
     pendingPayment: pending ? { reference: pending.reference, amount: pending.montant, label: pending.libelle } : undefined,
     chat: chat.reverse().map((m) => ({ role: m.role === "u" ? "u" : "a", text: m.texte })),
   };

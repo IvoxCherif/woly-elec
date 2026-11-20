@@ -335,3 +335,35 @@ export const liensPartage = pgTable(
   },
   (t) => [index("liens_partage_compteur_idx").on(t.compteurId)],
 );
+
+/**
+ * Recharges Woyofal vendues dans l'application : le client paie par SasPay (recharge + frais de service),
+ * puis Woly Elec achète la recharge chez DexPay et lui donne le code de 20 chiffres.
+ * Statuts : en_attente (paiement client) → paye → en_cours (chez DexPay) → livre ; annule ; a_rembourser → rembourse.
+ */
+export const achatsRecharge = pgTable(
+  "achats_recharge",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reference: text("reference").notNull().unique(), // WR-…, affichée au client et dans l'admin
+    clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }), // qui paie
+    titulaireId: uuid("titulaire_id").references(() => clients.id, { onDelete: "set null" }), // titulaire du compteur
+    compteurId: uuid("compteur_id").references(() => compteurs.id, { onDelete: "set null" }),
+    numeroCompteur: text("numero_compteur").notNull(),
+    nomSenelec: text("nom_senelec").notNull().default(""),
+    montant: integer("montant").notNull(), // recharge achetée chez DexPay
+    frais: integer("frais").notNull().default(0), // frais de service Woly Elec
+    total: integer("total").notNull(), // payé par le client
+    statut: text("statut").notNull().default("en_attente"),
+    checkoutId: text("checkout_id"),
+    transactionId: text("transaction_id"),
+    dexpayRef: text("dexpay_ref"),
+    fraisDexpay: integer("frais_dexpay"),
+    token: text("token"),
+    erreur: text("erreur"),
+    createdAt: createdAt(),
+    payeAt: timestamp("paye_at", { withTimezone: true }),
+    livreAt: timestamp("livre_at", { withTimezone: true }),
+  },
+  (t) => [index("achats_recharge_statut_idx").on(t.statut, t.createdAt), index("achats_recharge_client_idx").on(t.clientId, t.createdAt)],
+);
