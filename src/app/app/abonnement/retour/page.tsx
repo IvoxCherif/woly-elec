@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { track } from "@/lib/pixel";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
@@ -28,6 +29,11 @@ function Retour() {
       if (!r.ok) return setStatut("erreur");
       setInfo({ montant: j.montant, libelle: j.libelle });
       setStatut(j.statut as Statut);
+      if (j.statut === "confirme" && typeof j.montant === "number") {
+        // Conversion pour les publicités Meta (une seule fois par paiement)
+        track("Purchase", { value: j.montant, currency: "XOF", content_name: j.libelle }, { once: `pay_${ref}` });
+        track("Subscribe", { value: j.montant, currency: "XOF" }, { once: `sub_${ref}` });
+      }
       if (j.state) apply.current(j.state);
     } catch {
       /* réseau : on réessaie au prochain passage */

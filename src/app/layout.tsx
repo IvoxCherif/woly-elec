@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { NavTracker } from "@/components/BackButton";
 import { InstallCatcher } from "@/components/InstallGuide";
+import { MetaPixel } from "@/components/MetaPixel";
 
 export const metadata: Metadata = {
   title: { default: "Woly Elec — Saytu sa kuuraŋ · Votre électricité, sous contrôle", template: "%s · Woly Elec" },
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <NavTracker />
         <InstallCatcher />
         {children}
+        <MetaPixel />
       </body>
     </html>
   );

@@ -8,6 +8,7 @@ import { publicOrigin } from "@/server/ratelimit";
 import { sendPush } from "@/server/push";
 import { dexpayConfig, inquiryMeter, saveDexpayConfig, testDexpayKey } from "@/server/dexpay";
 import { adminPurchaseAction, adminPurchases } from "@/server/recharge";
+import { pixelConfig, savePixelConfig } from "@/server/pixel";
 
 export const runtime = "nodejs";
 
@@ -62,6 +63,8 @@ export async function GET(req: Request) {
           achats: await adminPurchases(db),
         });
       }
+      case "pixel":
+        return json(await pixelConfig(db));
       case "ia":
         return json({ ...(await adminIa(db)), modele: CLAUDE_MODEL, cle: await claudeKeyStatus() });
       default:
@@ -91,6 +94,14 @@ export async function POST(req: Request) {
         return json(info ? { ok: true, ...info } : { error: "compteur_inconnu_senelec" }, info ? 200 : 404);
       } catch {
         return json({ error: "verification_impossible" }, 503);
+      }
+    }
+    if (body?.type === "pixel") {
+      try {
+        return json({ ok: true, ...(await savePixelConfig(db, { id: typeof body.cle === "string" ? body.cle : undefined, actif: body.actif })) });
+      } catch (e) {
+        const m = (e as Error).message;
+        return json({ error: m === "pixel_invalide" || m === "pixel_absent" ? m : "enregistrement_impossible" }, 400);
       }
     }
     if (body?.type === "saspay") {

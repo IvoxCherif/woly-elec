@@ -270,3 +270,8 @@ button.sw[aria-checked="true"]::after{left:23px}
 .side-slogan{margin:-12px 10px 14px;font:700 italic 14px Montserrat,Inter,sans-serif;color:var(--yel);opacity:.9}
 .logo .tg .slogan-txt{font-style:italic;color:var(--yel);font-weight:800}
 .logo:not(.d) .tg .slogan-txt{color:var(--g6)}
+
+/* Bandeau d'accord pour les cookies de mesure Meta */
+.consent{position:fixed;left:16px;right:16px;bottom:16px;z-index:80;max-width:520px;margin:0 auto;background:#fff;border:1px solid var(--ln);border-radius:16px;box-shadow:var(--sh);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.consent .row{justify-content:flex-end}
+@media (max-width:900px){.consent.consent-app{bottom:84px}}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { track } from "@/lib/pixel";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
@@ -163,6 +164,8 @@ export default function Inscription() {
       }).catch(() => null);
       setBusy(false);
       if (!r?.ok) return setError(ERR[r?.data.error] ?? "Création du compte impossible.");
+      track("CompleteRegistration", { content_name: "Essai gratuit 30 jours", status: true });
+      track("StartTrial", { value: 0, currency: "XOF", predicted_ltv: 1999 * 12 });
       return setStep(6);
     }
     setStep((x) => x + 1);
